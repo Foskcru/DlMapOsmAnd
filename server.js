@@ -224,44 +224,121 @@ function detectKind(attrs) {
 }
 
 /**
- * Parse le XML de list.php en tableau d'objets.
+ * Supprime les balises HTML internes d'un fragment et décode les entités.
  */
-function parseList(xml) {
+function stripTags(html) {
+  return decodeEntities(html.replace(/<[^>]*>/g, '')).replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * Construit un objet carte normalisé à partir des champs bruts.
+ */
+function buildItem({ name, date, size, description, type }) {
+  const human = humanizeName(name);
+  const sizeMb = size != null ? parseFloat(String(size).replace(',', '.')) : NaN;
+  return {
+    name,
+    label: human.label,
+    region_group: human.region_group,
+    kind: detectKind({ name, type: type || '' }),
+    type: type || '',
+    description: description || '',
+    date: date || '',
+    size: Number.isFinite(sizeMb) ? sizeMb : null, // en Mo
+    downloadUrl: `https://download.osmand.net/download.php?standard=yes&file=${encodeURIComponent(
+      name
+    )}`,
+  };
+}
+
+/**
+ * Parse le tableau HTML renvoyé par list.php.
+ * Structure : <tr><td><a href="download?standard=yes&file=NOM">NOM</a></td>
+ *                 <td>DATE</td><td>SIZE</td><td>DESCRIPTION</td></tr>
+ */
+function parseHtmlTable(html) {
   const items = [];
-  // Chaque carte est une balise auto-fermante <... .../> à l'intérieur de <osmand_regions>.
+  const rowRe = /<tr\b[^>]*>([\s\S]*?)<\/tr>/gi;
+  let rm;
+  while ((rm = rowRe.exec(html)) !== null) {
+    const row = rm[1];
+    const cells = [];
+    const cellRe = /<td\b[^>]*>([\s\S]*?)<\/td>/gi;
+    let cm;
+    while ((cm = cellRe.exec(row)) !== null) cells.push(cm[1]);
+    if (cells.length === 0) continue; // ligne d'en-tête (<th>) ou de mise en page
+
+    // Première cellule : lien de téléchargement contenant le nom de fichier.
+    const link = /href\s*=\s*"([^"]*)"[^>]*>([\s\S]*?)<\/a>/i.exec(cells[0]);
+    if (!link) continue;
+    const href = decodeEntities(link[1]);
+    if (!/file=/.test(href) && !/download/i.test(href)) continue;
+
+    let name = stripTags(link[2]);
+    if (!name) {
+      const fp = /[?&]file=([^&"]+)/i.exec(href);
+      if (fp) {
+        try {
+          name = decodeURIComponent(fp[1]);
+        } catch (_) {
+          name = fp[1];
+        }
+      }
+    }
+    if (!name) continue;
+
+    items.push(
+      buildItem({
+        name,
+        date: cells[1] ? stripTags(cells[1]) : '',
+        size: cells[2] ? stripTags(cells[2]) : '',
+        description: cells[3] ? stripTags(cells[3]) : '',
+      })
+    );
+  }
+  return items;
+}
+
+/**
+ * Parse le format XML <osmand_regions> (endpoint get_indexes) — conservé en
+ * repli au cas où la source renverrait du XML.
+ */
+function parseXml(xml) {
+  const items = [];
   const tagRe = /<([\w:-]+)\b([^>]*?)\/?>/g;
   let m;
   while ((m = tagRe.exec(xml)) !== null) {
     const tagName = m[1];
     const body = m[2];
     if (tagName === 'osmand_regions' || tagName === '?xml') continue;
-    if (!/name\s*=/.test(body)) continue; // il faut au moins un nom de fichier
+    if (!/name\s*=/.test(body)) continue;
 
     const attrs = parseAttributes(body);
     if (!attrs.name) continue;
 
-    const human = humanizeName(attrs.name);
-    const sizeMb = attrs.size ? parseFloat(attrs.size) : null;
-
-    items.push({
-      name: attrs.name,
-      label: human.label,
-      region_group: human.region_group,
-      kind: detectKind(attrs),
-      type: attrs.type || '',
-      description: attrs.description || '',
-      date: attrs.date || '',
-      timestamp: attrs.timestamp ? Number(attrs.timestamp) : null,
-      size: Number.isFinite(sizeMb) ? sizeMb : null, // en Mo (décompressé)
-      targetsize: attrs.targetsize ? parseFloat(attrs.targetsize) : null,
-      containerSize: attrs.containerSize ? Number(attrs.containerSize) : null,
-      contentSize: attrs.contentSize ? Number(attrs.contentSize) : null,
-      downloadUrl: `https://download.osmand.net/download.php?standard=yes&file=${encodeURIComponent(
-        attrs.name
-      )}`,
-    });
+    items.push(
+      buildItem({
+        name: attrs.name,
+        date: attrs.date,
+        size: attrs.size,
+        description: attrs.description,
+        type: attrs.type,
+      })
+    );
   }
   return items;
+}
+
+/**
+ * Détecte le format (HTML ou XML) et parse en conséquence.
+ */
+function parseList(body) {
+  if (!body) return [];
+  if (/<osmand_regions/i.test(body) || /<region\b[^>]*\bname\s*=/i.test(body)) {
+    const xmlItems = parseXml(body);
+    if (xmlItems.length) return xmlItems;
+  }
+  return parseHtmlTable(body);
 }
 
 async function getMaps(force = false) {
@@ -387,4 +464,12 @@ if (require.main === module) {
   });
 }
 
-module.exports = { parseList, humanizeName, detectKind, parseAttributes };
+module.exports = {
+  parseList,
+  parseHtmlTable,
+  parseXml,
+  humanizeName,
+  detectKind,
+  parseAttributes,
+  decompress,
+};
