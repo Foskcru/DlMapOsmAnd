@@ -1,0 +1,11 @@
+services:
+  dlmaposmand:
+    build: .
+    image: dlmaposmand:latest
+    container_name: dlmaposmand
+    restart: unless-stopped
+    ports:
+      # Modifie le port de gauche si 3000 est déjà pris sur ton NAS.
+      - "3000:3000"
+    environment:
+      - PORT=3000

@@ -42,6 +42,41 @@ Pour changer le port :
 PORT=8080 node server.js
 ```
 
+## Déploiement Docker (ex. sur un NAS)
+
+Le projet inclut un `Dockerfile` et un `docker-compose.yml`. Aucune
+dépendance à installer : l'image reste très légère.
+
+### Avec docker compose (recommandé)
+
+```bash
+docker compose up -d --build
+```
+
+Puis ouvrez **http://IP-DU-NAS:3000**
+
+Pour arrêter :
+
+```bash
+docker compose down
+```
+
+### Sans compose
+
+```bash
+docker build -t dlmaposmand .
+docker run -d --name dlmaposmand -p 3000:3000 --restart unless-stopped dlmaposmand
+```
+
+### Notes NAS (Synology / QNAP / TrueNAS…)
+
+- Si le port **3000** est déjà utilisé, changez la partie gauche du mapping
+  dans `docker-compose.yml` (ex. `"8096:3000"`) puis ouvrez le NAS sur ce port.
+- Le conteneur a besoin d'un **accès Internet sortant** vers
+  `download.osmand.net` pour récupérer la liste des cartes.
+- Un `HEALTHCHECK` est intégré : le NAS affichera l'état « healthy » du
+  conteneur une fois démarré.
+
 ## API
 
 | Route                     | Description                                          |
