@@ -23,6 +23,8 @@ const OSMAND_LIST_URL = 'https://download.osmand.net/list.php';
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 heure
 
 const PUBLIC_DIR = path.join(__dirname, 'public');
+// Fichier des régions (états/provinces), côté serveur uniquement.
+const ADMIN1_PATH = path.join(__dirname, 'data', 'admin1.min.geo.json');
 
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -36,6 +38,38 @@ const MIME_TYPES = {
 
 // Cache mémoire simple.
 let cache = { data: null, fetchedAt: 0 };
+
+// Régions admin-1 chargées paresseusement puis indexées par pays (normalisé).
+let admin1ByCountry = null;
+
+function normCountry(s) {
+  return (s || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z]/g, '');
+}
+
+function loadAdmin1() {
+  if (admin1ByCountry) return admin1ByCountry;
+  admin1ByCountry = {};
+  try {
+    const gj = JSON.parse(fs.readFileSync(ADMIN1_PATH, 'utf8'));
+    for (const f of gj.features) {
+      const key = normCountry(f.properties && f.properties.admin);
+      if (!key) continue;
+      (admin1ByCountry[key] = admin1ByCountry[key] || []).push(f);
+    }
+  } catch (e) {
+    console.warn('admin1 indisponible :', e.message);
+  }
+  return admin1ByCountry;
+}
+
+function getRegionsForCountry(country) {
+  const idx = loadAdmin1();
+  return idx[normCountry(country)] || [];
+}
 
 /**
  * Décompresse un buffer selon le Content-Encoding, ou selon les octets
@@ -150,43 +184,52 @@ function parseAttributes(tagBody) {
   return attrs;
 }
 
+// Derniers segments de nom correspondant à un « groupe » (continent ou grand
+// pays subdivisé), à retirer pour isoler pays et sous-région.
+const GROUPS = [
+  'africa',
+  'asia',
+  'australia-oceania',
+  'centralamerica',
+  'europe',
+  'north-america',
+  'northamerica',
+  'south-america',
+  'southamerica',
+  'us',
+  'russia',
+  'gb',
+  'germany',
+  'france',
+  'italy',
+  'spain',
+];
+
 /**
- * Construit un nom lisible + continent à partir du nom de fichier OsmAnd.
- * Ex : "Afghanistan_asia_2.obf.zip" -> { region: "Afghanistan", region_group: "asia" }
+ * Retire les suffixes de fichier et le numéro de version, renvoie les
+ * segments (pays, sous-région…, groupe).
  */
-function humanizeName(fileName) {
-  let base = fileName
-    // suffixes connus
+function baseParts(fileName) {
+  const base = fileName
     .replace(
       /(_road)?(_srtm(_feet)?|_wiki|_depth)?\.(obf|extra|sqlite|tif|tif\.zip|wikivoyage\.obf)(\.zip)?$/i,
       ''
     )
     .replace(/\.(zip|gz|sqlite|tif|obf)$/i, '')
     .replace(/_\d+$/, ''); // numéro de version
+  return base.split('_').filter(Boolean);
+}
 
-  const parts = base.split('_').filter(Boolean);
-  const groups = [
-    'africa',
-    'asia',
-    'australia-oceania',
-    'centralamerica',
-    'europe',
-    'north-america',
-    'northamerica',
-    'south-america',
-    'southamerica',
-    'us',
-    'russia',
-    'gb',
-    'germany',
-    'france',
-    'italy',
-    'spain',
-  ];
+/**
+ * Construit un nom lisible + continent à partir du nom de fichier OsmAnd.
+ * Ex : "Afghanistan_asia_2.obf.zip" -> { label: "Afghanistan", region_group: "asia" }
+ */
+function humanizeName(fileName) {
+  const parts = baseParts(fileName);
 
   let regionGroup = '';
   const lastLower = (parts[parts.length - 1] || '').toLowerCase();
-  if (groups.includes(lastLower)) {
+  if (GROUPS.includes(lastLower)) {
     regionGroup = parts.pop();
   }
 
@@ -200,6 +243,21 @@ function humanizeName(fileName) {
     label: label || fileName,
     region_group: regionGroup.toLowerCase(),
   };
+}
+
+/**
+ * Isole le token de sous-région (segments entre le pays et le groupe).
+ * "France_ile-de-france_europe_2.obf.zip" -> "ile-de-france"
+ * "US_alabama_northamerica_2.obf.zip"      -> "alabama"
+ * "France_europe_2.obf.zip"                -> "" (carte du pays entier)
+ */
+function subregionToken(fileName) {
+  const parts = baseParts(fileName);
+  if (parts.length && GROUPS.includes(parts[parts.length - 1].toLowerCase())) {
+    parts.pop(); // groupe/continent
+  }
+  parts.shift(); // pays
+  return parts.join('_').toLowerCase();
 }
 
 /**
@@ -247,6 +305,7 @@ function buildItem({ name, date, size, description, type }) {
     country: countryToken,
     country_label:
       countryToken.charAt(0).toUpperCase() + countryToken.slice(1),
+    subregion: subregionToken(name),
     kind: detectKind({ name, type: type || '' }),
     type: type || '',
     description: description || '',
@@ -353,7 +412,10 @@ function parseList(body) {
 function mockItems() {
   const raw = [
     ['France_europe_2.obf.zip', '17.09.2024', '520.0'],
+    ['France_ile-de-france_europe_2.obf.zip', '17.09.2024', '85.0'],
+    ['France_bretagne_europe_2.obf.zip', '17.09.2024', '60.0'],
     ['Germany_bayern_europe_2.obf.zip', '17.09.2024', '210.0'],
+    ['Germany_sachsen_europe_2.obf.zip', '16.09.2024', '95.0'],
     ['Spain_europe_2.obf.zip', '15.09.2024', '410.0'],
     ['Italy_europe_2.obf.zip', '14.09.2024', '390.0'],
     ['Russia_central-fed-district_europe_2.obf.zip', '10.09.2024', '150.0'],
@@ -459,6 +521,23 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // Renvoie les polygones des régions (états/provinces) d'un pays donné,
+  // à la demande (le fichier complet reste côté serveur).
+  if (pathname === '/api/regions') {
+    const country = parsed.searchParams.get('country') || '';
+    try {
+      const features = getRegionsForCountry(country);
+      sendJson(res, 200, {
+        type: 'FeatureCollection',
+        country,
+        features,
+      });
+    } catch (e) {
+      sendJson(res, 500, { ok: false, error: e.message || String(e) });
+    }
+    return;
+  }
+
   // Endpoint de diagnostic : renvoie un extrait BRUT de la réponse de list.php
   // ainsi que le nombre d'éléments détectés. Utile pour comprendre le format
   // réel quand aucune carte ne remonte.
@@ -504,6 +583,7 @@ module.exports = {
   parseHtmlTable,
   parseXml,
   humanizeName,
+  subregionToken,
   detectKind,
   parseAttributes,
   decompress,

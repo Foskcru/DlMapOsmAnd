@@ -8,8 +8,11 @@ disponibles sur [`download.osmand.net/list.php`](https://download.osmand.net/lis
 ## Fonctionnalités
 
 - 🗺️ **Carte du monde interactive** : les pays ayant une carte sont colorés ;
-  survol pour voir le nombre de cartes, **clic sur un pays** pour filtrer la
-  liste et accéder au téléchargement
+  survol pour voir le nombre de cartes, **clic sur un pays** pour **zoomer et
+  afficher ses régions** (états/provinces). Les régions ayant une carte OsmAnd
+  sont colorées et **cliquables pour télécharger** ; la liste des régions du
+  pays s'affiche toujours en dessous (utile quand le découpage OsmAnd diffère
+  du découpage administratif, ex. les grandes régions françaises)
 - 🔎 **Barre de recherche** instantanée (pays, région, description…)
 - 🗂️ **Filtres** par **pays**, par type (carte, courbes de niveau, Wikipédia,
   voix…) et par continent
@@ -151,6 +154,9 @@ docker run -d --name dlmaposmand -p 3000:3000 --restart unless-stopped dlmaposma
     ├── vendor/        # Leaflet embarqué (js/css/images)
     └── data/
         └── countries.geo.json  # Contours des pays (fond de carte)
+data/
+    └── admin1.min.geo.json      # Contours des régions (états/provinces), servi
+                                 # à la demande via /api/regions?country=…
 ```
 
 ## Remarques
