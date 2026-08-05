@@ -13,6 +13,7 @@
 
 const http = require('http');
 const https = require('https');
+const zlib = require('zlib');
 const fs = require('fs');
 const path = require('path');
 const { URL } = require('url');
@@ -37,7 +38,33 @@ const MIME_TYPES = {
 let cache = { data: null, fetchedAt: 0 };
 
 /**
+ * Décompresse un buffer selon le Content-Encoding, ou selon les octets
+ * magiques (gzip = 1f 8b) si le serveur ne renvoie pas l'en-tête.
+ */
+function decompress(buffer, encoding) {
+  const enc = (encoding || '').toLowerCase();
+  const isGzipMagic = buffer.length > 2 && buffer[0] === 0x1f && buffer[1] === 0x8b;
+  try {
+    if (enc.includes('br')) return zlib.brotliDecompressSync(buffer).toString('utf-8');
+    if (enc.includes('gzip') || isGzipMagic)
+      return zlib.gunzipSync(buffer).toString('utf-8');
+    if (enc.includes('deflate')) return zlib.inflateSync(buffer).toString('utf-8');
+  } catch (e) {
+    // En dernier recours on tente le gunzip si les octets magiques sont là.
+    if (isGzipMagic) {
+      try {
+        return zlib.gunzipSync(buffer).toString('utf-8');
+      } catch (_) {
+        /* on retombe sur le texte brut */
+      }
+    }
+  }
+  return buffer.toString('utf-8');
+}
+
+/**
  * Récupère le contenu de list.php (suivi des redirections HTTP simples).
+ * Résout avec { body, status, headers, contentType }.
  */
 function fetchOsmandList(url, redirects = 0) {
   return new Promise((resolve, reject) => {
@@ -56,6 +83,7 @@ function fetchOsmandList(url, redirects = 0) {
           'User-Agent':
             'Mozilla/5.0 (compatible; DlMapOsmAnd/1.0; +https://osmand.net)',
           Accept: 'application/xml,text/xml,*/*',
+          'Accept-Encoding': 'gzip, deflate, br',
         },
         timeout: 30000,
       },
@@ -78,7 +106,16 @@ function fetchOsmandList(url, redirects = 0) {
 
         const chunks = [];
         res.on('data', (c) => chunks.push(c));
-        res.on('end', () => resolve(Buffer.concat(chunks).toString('utf-8')));
+        res.on('end', () => {
+          const buf = Buffer.concat(chunks);
+          const body = decompress(buf, res.headers['content-encoding']);
+          resolve({
+            body,
+            status,
+            headers: res.headers,
+            contentType: res.headers['content-type'] || '',
+          });
+        });
       }
     );
 
@@ -232,8 +269,8 @@ async function getMaps(force = false) {
   if (!force && cache.data && now - cache.fetchedAt < CACHE_TTL_MS) {
     return { items: cache.data, cached: true, fetchedAt: cache.fetchedAt };
   }
-  const xml = await fetchOsmandList(OSMAND_LIST_URL);
-  const items = parseList(xml);
+  const res = await fetchOsmandList(OSMAND_LIST_URL);
+  const items = parseList(res.body);
   cache = { data: items, fetchedAt: now };
   return { items, cached: false, fetchedAt: now };
 }
@@ -307,6 +344,34 @@ const server = http.createServer(async (req, res) => {
 
   if (pathname === '/api/health') {
     sendJson(res, 200, { ok: true });
+    return;
+  }
+
+  // Endpoint de diagnostic : renvoie un extrait BRUT de la réponse de list.php
+  // ainsi que le nombre d'éléments détectés. Utile pour comprendre le format
+  // réel quand aucune carte ne remonte.
+  if (pathname === '/api/raw') {
+    try {
+      const n = Math.min(
+        parseInt(parsed.searchParams.get('n') || '4000', 10) || 4000,
+        200000
+      );
+      const r = await fetchOsmandList(OSMAND_LIST_URL);
+      const items = parseList(r.body);
+      sendJson(res, 200, {
+        ok: true,
+        source: OSMAND_LIST_URL,
+        httpStatus: r.status,
+        contentType: r.contentType,
+        contentEncoding: r.headers['content-encoding'] || null,
+        bodyLength: r.body.length,
+        detectedItems: items.length,
+        firstItem: items[0] || null,
+        sample: r.body.slice(0, n),
+      });
+    } catch (e) {
+      sendJson(res, 502, { ok: false, error: e.message || String(e) });
+    }
     return;
   }
 
