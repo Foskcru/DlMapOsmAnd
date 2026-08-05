@@ -1,0 +1,20 @@
+{
+  "name": "dl-map-osmand",
+  "version": "1.0.0",
+  "description": "Application web pour lister et rechercher toutes les cartes disponibles sur download.osmand.net",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "osmand",
+    "maps",
+    "cartes",
+    "download"
+  ],
+  "license": "MIT"
+}

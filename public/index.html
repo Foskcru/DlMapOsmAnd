@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Cartes OsmAnd — recherche & téléchargement</title>
+    <link rel="stylesheet" href="/style.css" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🗺️</text></svg>"
+    />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <span class="logo">🗺️</span>
+        <div>
+          <h1>Cartes OsmAnd</h1>
+          <p class="subtitle">
+            Liste complète des cartes disponibles sur
+            <code>download.osmand.net</code>
+          </p>
+        </div>
+      </div>
+    </header>
+
+    <main class="container">
+      <section class="controls">
+        <div class="search">
+          <input
+            id="search"
+            type="search"
+            placeholder="Rechercher une carte (pays, région…)"
+            autocomplete="off"
+            aria-label="Rechercher une carte"
+          />
+        </div>
+        <div class="filters">
+          <select id="kind" aria-label="Filtrer par type">
+            <option value="">Tous les types</option>
+          </select>
+          <select id="group" aria-label="Filtrer par continent">
+            <option value="">Tous les continents</option>
+          </select>
+          <select id="sort" aria-label="Trier">
+            <option value="label">Trier : nom (A→Z)</option>
+            <option value="size">Trier : taille</option>
+            <option value="date">Trier : date</option>
+          </select>
+          <button id="refresh" type="button" title="Rafraîchir la liste">
+            ↻ Rafraîchir
+          </button>
+        </div>
+      </section>
+
+      <section class="statusbar">
+        <span id="status" class="status">Chargement…</span>
+      </section>
+
+      <section id="results" class="results" aria-live="polite"></section>
+
+      <div id="empty" class="empty" hidden>
+        Aucune carte ne correspond à votre recherche.
+      </div>
+    </main>
+
+    <footer class="footer">
+      <p>
+        Données : <a href="https://osmand.net" target="_blank" rel="noopener">OsmAnd</a>
+        — Cette page interroge <code>download.osmand.net/list.php</code>.
+      </p>
+    </footer>
+
+    <script src="/app.js"></script>
+  </body>
+</html>
