@@ -236,10 +236,17 @@ function stripTags(html) {
 function buildItem({ name, date, size, description, type }) {
   const human = humanizeName(name);
   const sizeMb = size != null ? parseFloat(String(size).replace(',', '.')) : NaN;
+  // Le premier segment du nom de fichier correspond au pays (ou entité de
+  // premier niveau) : France_europe_2.obf.zip -> "france",
+  // US_alabama_northamerica_2.obf.zip -> "us".
+  const countryToken = name.split(/[_.]/)[0].toLowerCase();
   return {
     name,
     label: human.label,
     region_group: human.region_group,
+    country: countryToken,
+    country_label:
+      countryToken.charAt(0).toUpperCase() + countryToken.slice(1),
     kind: detectKind({ name, type: type || '' }),
     type: type || '',
     description: description || '',
@@ -341,8 +348,36 @@ function parseList(body) {
   return parseHtmlTable(body);
 }
 
+// Jeu de données factice pour prévisualiser l'interface hors ligne
+// (activé avec la variable d'environnement MOCK_MAPS=1).
+function mockItems() {
+  const raw = [
+    ['France_europe_2.obf.zip', '17.09.2024', '520.0'],
+    ['Germany_bayern_europe_2.obf.zip', '17.09.2024', '210.0'],
+    ['Spain_europe_2.obf.zip', '15.09.2024', '410.0'],
+    ['Italy_europe_2.obf.zip', '14.09.2024', '390.0'],
+    ['Russia_central-fed-district_europe_2.obf.zip', '10.09.2024', '150.0'],
+    ['US_alabama_northamerica_2.obf.zip', '12.09.2024', '95.0'],
+    ['Brazil_southamerica_2.obf.zip', '09.09.2024', '480.0'],
+    ['China_asia_2.obf.zip', '08.09.2024', '600.0'],
+    ['India_asia_2.obf.zip', '08.09.2024', '350.0'],
+    ['Australia_australia-oceania_2.obf.zip', '07.09.2024', '300.0'],
+    ['Japan_asia_2.obf.zip', '06.09.2024', '250.0'],
+    ['Canada_northamerica_2.obf.zip', '05.09.2024', '700.0'],
+    ['Morocco_africa_2.obf.zip', '04.09.2024', '90.0'],
+    ['Egypt_africa_2.obf.zip', '03.09.2024', '110.0'],
+    ['Argentina_southamerica_2.obf.zip', '02.09.2024', '260.0'],
+  ];
+  return raw.map(([name, date, size]) =>
+    buildItem({ name, date, size, description: 'Carte de démonstration' })
+  );
+}
+
 async function getMaps(force = false) {
   const now = manualNow();
+  if (process.env.MOCK_MAPS === '1') {
+    return { items: mockItems(), cached: false, fetchedAt: now };
+  }
   if (!force && cache.data && now - cache.fetchedAt < CACHE_TTL_MS) {
     return { items: cache.data, cached: true, fetchedAt: cache.fetchedAt };
   }

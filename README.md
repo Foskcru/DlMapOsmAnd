@@ -7,12 +7,26 @@ disponibles sur [`download.osmand.net/list.php`](https://download.osmand.net/lis
 
 ## Fonctionnalités
 
+- 🗺️ **Carte du monde interactive** : les pays ayant une carte sont colorés ;
+  survol pour voir le nombre de cartes, **clic sur un pays** pour filtrer la
+  liste et accéder au téléchargement
 - 🔎 **Barre de recherche** instantanée (pays, région, description…)
-- 🗂️ **Filtres** par type (carte, courbes de niveau, Wikipédia, voix…) et par continent
+- 🗂️ **Filtres** par **pays**, par type (carte, courbes de niveau, Wikipédia,
+  voix…) et par continent
 - ↕️ **Tri** par nom, taille ou date
 - ⬇️ **Lien de téléchargement direct** pour chaque carte
-- ⚡ **Zéro dépendance** : uniquement Node.js natif (`http`/`https`)
+- ⚡ **Zéro dépendance runtime** : Node.js natif (`http`/`https`) ; Leaflet et le
+  fond de carte GeoJSON sont **embarqués** dans le projet (aucun CDN requis)
 - 🧠 **Cache serveur** (1 h) pour ne pas surcharger les serveurs OsmAnd
+
+### Mode démonstration (hors ligne)
+
+Pour prévisualiser l'interface sans accès à `download.osmand.net` (données
+factices) :
+
+```bash
+MOCK_MAPS=1 node server.js
+```
 
 ## Pourquoi un petit serveur ?
 
@@ -128,12 +142,15 @@ docker run -d --name dlmaposmand -p 3000:3000 --restart unless-stopped dlmaposma
 
 ```
 .
-├── server.js          # Serveur + proxy + parseur XML → JSON
+├── server.js          # Serveur + proxy + parseur HTML/XML → JSON
 ├── package.json
 └── public/
     ├── index.html     # Interface
     ├── style.css      # Styles
-    └── app.js         # Logique front (recherche, filtres, rendu)
+    ├── app.js         # Logique front (carte, recherche, filtres, rendu)
+    ├── vendor/        # Leaflet embarqué (js/css/images)
+    └── data/
+        └── countries.geo.json  # Contours des pays (fond de carte)
 ```
 
 ## Remarques

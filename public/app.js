@@ -3,6 +3,7 @@
 (function () {
   const els = {
     search: document.getElementById('search'),
+    country: document.getElementById('country'),
     kind: document.getElementById('kind'),
     group: document.getElementById('group'),
     sort: document.getElementById('sort'),
@@ -10,10 +11,43 @@
     status: document.getElementById('status'),
     results: document.getElementById('results'),
     empty: document.getElementById('empty'),
+    mapReset: document.getElementById('mapReset'),
   };
 
   let allItems = [];
-  const MAX_RENDER = 500; // limite d'affichage pour rester fluide
+  let tokenCount = {}; // token pays -> nombre de cartes
+  const MAX_RENDER = 500;
+
+  // --- Carte ---
+  let map = null;
+  let geoLayer = null;
+  let selectedToken = '';
+
+  /* ---------------------------------------------------------------- utils */
+
+  function norm(s) {
+    return (s || '')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[̀-ͯ]/g, '')
+      .replace(/[^a-z]/g, '');
+  }
+
+  // Correspondances explicites entre noms du GeoJSON et tokens OsmAnd
+  // (utile là où les deux diffèrent fortement).
+  const ALIASES = {
+    unitedstatesofamerica: 'us',
+    unitedstates: 'us',
+    unitedkingdom: 'greatbritain',
+    russia: 'russia',
+    czechia: 'czechrepublic',
+    southkorea: 'southkorea',
+    republicofkorea: 'southkorea',
+    democraticrepublicofthecongo: 'congodr',
+    republicofthecongo: 'congo',
+    ivorycoast: 'cotedivoire',
+    bosniaandherzegovina: 'bosniaandherzegovina',
+  };
 
   function formatSize(mb) {
     if (mb == null || Number.isNaN(mb)) return '—';
@@ -47,18 +81,55 @@
     };
   }
 
-  function populateFilters(items) {
-    const kinds = Array.from(new Set(items.map((i) => i.kind))).sort();
-    const groups = Array.from(
-      new Set(items.map((i) => i.region_group).filter(Boolean))
-    ).sort();
+  /**
+   * Retourne le token pays OsmAnd correspondant à une entité GeoJSON,
+   * ou null s'il n'existe pas de carte pour ce pays.
+   */
+  function tokenForCountry(name) {
+    const n = norm(name);
+    if (ALIASES[n] && tokenCount[ALIASES[n]]) return ALIASES[n];
 
+    // correspondance exacte
+    if (tokenCount[n]) return n;
+
+    // le nom du pays commence par le token (ex. token "czechrepublic")
+    for (const t in tokenCount) {
+      if (t.length >= 4 && (n === t || n.startsWith(t) || t.startsWith(n))) {
+        return t;
+      }
+    }
+    return null;
+  }
+
+  /* -------------------------------------------------------------- filtres */
+
+  function populateFilters(items) {
+    // Pays
+    const byCountry = {};
+    for (const it of items) {
+      if (!byCountry[it.country]) byCountry[it.country] = it.country_label;
+    }
+    const countries = Object.keys(byCountry).sort((a, b) =>
+      byCountry[a].localeCompare(byCountry[b], 'fr')
+    );
+    for (const c of countries) {
+      const opt = document.createElement('option');
+      opt.value = c;
+      opt.textContent = `${byCountry[c]} (${tokenCount[c]})`;
+      els.country.appendChild(opt);
+    }
+
+    const kinds = Array.from(new Set(items.map((i) => i.kind))).sort();
     for (const k of kinds) {
       const opt = document.createElement('option');
       opt.value = k;
       opt.textContent = kindLabel(k);
       els.kind.appendChild(opt);
     }
+
+    const groups = Array.from(
+      new Set(items.map((i) => i.region_group).filter(Boolean))
+    ).sort();
     for (const g of groups) {
       const opt = document.createElement('option');
       opt.value = g;
@@ -69,11 +140,13 @@
 
   function getFiltered() {
     const q = els.search.value.trim().toLowerCase();
+    const country = els.country.value;
     const kind = els.kind.value;
     const group = els.group.value;
     const sort = els.sort.value;
 
     let out = allItems.filter((it) => {
+      if (country && it.country !== country) return false;
       if (kind && it.kind !== kind) return false;
       if (group && it.region_group !== group) return false;
       if (q) {
@@ -85,22 +158,26 @@
 
     out.sort((a, b) => {
       if (sort === 'size') return (b.size || 0) - (a.size || 0);
-      if (sort === 'date') return (b.timestamp || 0) - (a.timestamp || 0);
+      if (sort === 'date') return dateVal(b.date) - dateVal(a.date);
       return a.label.localeCompare(b.label, 'fr');
     });
 
     return out;
   }
 
+  // "17.09.2024" -> nombre comparable
+  function dateVal(d) {
+    const m = /(\d{2})\.(\d{2})\.(\d{4})/.exec(d || '');
+    return m ? Number(m[3] + m[2] + m[1]) : 0;
+  }
+
+  /* --------------------------------------------------------------- rendu */
+
   function render() {
     const filtered = getFiltered();
     els.results.innerHTML = '';
-
-    if (filtered.length === 0) {
-      els.empty.hidden = false;
-    } else {
-      els.empty.hidden = true;
-    }
+    els.empty.hidden = filtered.length !== 0;
+    els.mapReset.hidden = !(selectedToken || els.country.value);
 
     const shown = filtered.slice(0, MAX_RENDER);
     const frag = document.createDocumentFragment();
@@ -158,9 +235,7 @@
       filtered.length > MAX_RENDER
         ? ` (${MAX_RENDER} premiers affichés — affinez la recherche)`
         : '';
-    setStatus(
-      `${filtered.length} carte(s) sur ${allItems.length}${extra}`
-    );
+    setStatus(`${filtered.length} carte(s) sur ${allItems.length}${extra}`);
   }
 
   function setStatus(msg, isError) {
@@ -168,29 +243,135 @@
     els.status.classList.toggle('error', !!isError);
   }
 
-  async function load(force) {
+  /* ---------------------------------------------------------------- carte */
+
+  function styleFeature(feature) {
+    const token = tokenForCountry(feature.properties && feature.properties.name);
+    const available = !!token;
+    const selected = token && token === selectedToken;
+    return {
+      color: '#ffffff',
+      weight: selected ? 2 : 0.6,
+      fillColor: selected ? '#c2410c' : available ? '#ea7500' : '#cbd5e1',
+      fillOpacity: available ? (selected ? 0.95 : 0.75) : 0.35,
+    };
+  }
+
+  function initMap(geojson) {
+    map = L.map('map', {
+      attributionControl: false,
+      zoomControl: true,
+      worldCopyJump: true,
+      minZoom: 1,
+      maxZoom: 6,
+    });
+
+    geoLayer = L.geoJSON(geojson, {
+      style: styleFeature,
+      onEachFeature: function (feature, layer) {
+        const name = feature.properties && feature.properties.name;
+
+        // Contenu calculé à l'ouverture -> reste juste même si les données
+        // arrivent après l'affichage de la carte.
+        layer.bindTooltip(
+          function () {
+            const t = tokenForCountry(name);
+            return t
+              ? `${name} — ${tokenCount[t]} carte(s)`
+              : `${name} — aucune carte`;
+          },
+          { sticky: true }
+        );
+
+        layer.on({
+          mouseover: function () {
+            const t = tokenForCountry(name);
+            layer.setStyle({ weight: 1.6, fillOpacity: t ? 0.9 : 0.5 });
+          },
+          mouseout: function () {
+            geoLayer.resetStyle(layer);
+          },
+          click: function () {
+            const t = tokenForCountry(name);
+            if (!t) {
+              setStatus(`${name} : aucune carte disponible.`);
+              return;
+            }
+            selectedToken = t;
+            els.country.value = t;
+            els.search.value = '';
+            geoLayer.setStyle(styleFeature);
+            render();
+            document
+              .querySelector('.controls')
+              .scrollIntoView({ behavior: 'smooth', block: 'start' });
+          },
+        });
+      },
+    }).addTo(map);
+
+    map.fitBounds(geoLayer.getBounds(), { padding: [4, 4] });
+  }
+
+  function refreshMapStyles() {
+    if (geoLayer) geoLayer.setStyle(styleFeature);
+  }
+
+  async function loadGeo() {
+    try {
+      const res = await fetch('/data/countries.geo.json');
+      const geo = await res.json();
+      initMap(geo);
+    } catch (e) {
+      const el = document.getElementById('map');
+      if (el) el.innerHTML =
+        '<div class="map-error">Carte indisponible : ' + e.message + '</div>';
+    }
+  }
+
+  /* ----------------------------------------------------------- chargement */
+
+  async function loadMaps(force) {
     setStatus('Chargement de la liste des cartes…');
-    els.results.innerHTML = '';
     try {
       const res = await fetch('/api/maps' + (force ? '?refresh=1' : ''));
       const data = await res.json();
-      if (!data.ok) {
-        throw new Error(data.error || 'Erreur inconnue');
-      }
+      if (!data.ok) throw new Error(data.error || 'Erreur inconnue');
       allItems = data.items;
+      tokenCount = {};
+      for (const it of allItems) {
+        tokenCount[it.country] = (tokenCount[it.country] || 0) + 1;
+      }
       populateFilters(allItems);
+      refreshMapStyles();
       render();
     } catch (e) {
       setStatus('Erreur : ' + e.message, true);
     }
   }
 
-  // Événements
+  function resetSelection() {
+    selectedToken = '';
+    els.country.value = '';
+    els.search.value = '';
+    refreshMapStyles();
+    render();
+  }
+
+  /* ------------------------------------------------------------ événements */
+
   els.search.addEventListener('input', debounce(render, 150));
+  els.country.addEventListener('change', function () {
+    selectedToken = els.country.value;
+    refreshMapStyles();
+    render();
+  });
   els.kind.addEventListener('change', render);
   els.group.addEventListener('change', render);
   els.sort.addEventListener('change', render);
-  els.refresh.addEventListener('click', () => load(true));
+  els.refresh.addEventListener('click', () => loadMaps(true));
+  els.mapReset.addEventListener('click', resetSelection);
 
-  load(false);
+  // Démarrage : carte d'abord (locale, rapide), puis les données OsmAnd.
+  loadGeo().then(() => loadMaps(false));
 })();

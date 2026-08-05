@@ -4,6 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Cartes OsmAnd — recherche & téléchargement</title>
+    <link rel="stylesheet" href="/vendor/leaflet.css" />
     <link rel="stylesheet" href="/style.css" />
     <link
       rel="icon"
@@ -25,6 +26,23 @@
     </header>
 
     <main class="container">
+      <!-- Carte du monde : les pays disposant d'une carte sont colorés -->
+      <section class="map-section">
+        <div id="map" aria-label="Carte du monde des cartes disponibles"></div>
+        <div class="map-legend">
+          <span class="legend-item"
+            ><span class="swatch swatch-on"></span> Carte disponible (cliquez un
+            pays)</span
+          >
+          <span class="legend-item"
+            ><span class="swatch swatch-off"></span> Aucune carte</span
+          >
+          <button id="mapReset" type="button" class="map-reset" hidden>
+            ✕ Réinitialiser la sélection
+          </button>
+        </div>
+      </section>
+
       <section class="controls">
         <div class="search">
           <input
@@ -36,6 +54,9 @@
           />
         </div>
         <div class="filters">
+          <select id="country" aria-label="Filtrer par pays">
+            <option value="">Tous les pays</option>
+          </select>
           <select id="kind" aria-label="Filtrer par type">
             <option value="">Tous les types</option>
           </select>
@@ -66,11 +87,13 @@
 
     <footer class="footer">
       <p>
-        Données : <a href="https://osmand.net" target="_blank" rel="noopener">OsmAnd</a>
-        — Cette page interroge <code>download.osmand.net/list.php</code>.
+        Données :
+        <a href="https://osmand.net" target="_blank" rel="noopener">OsmAnd</a>
+        — Fonds de carte : contours pays (Natural Earth / world.geo.json).
       </p>
     </footer>
 
+    <script src="/vendor/leaflet.js"></script>
     <script src="/app.js"></script>
   </body>
 </html>
