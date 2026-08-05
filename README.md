@@ -42,6 +42,22 @@ Pour changer le port :
 PORT=8080 node server.js
 ```
 
+## Tester depuis un téléphone (GitHub Codespaces)
+
+Sans rien installer, avec ton compte GitHub :
+
+1. Sur le téléphone, ouvre le dépôt sur **github.com** et sélectionne la
+   branche `claude/web-app-carte-list-qnqn45`.
+2. Bouton vert **Code** → onglet **Codespaces** → **Create codespace**.
+3. Attends le démarrage. Grâce au fichier `.devcontainer/devcontainer.json`,
+   le serveur se lance tout seul et le port **3000** est ouvert
+   automatiquement.
+4. Un lien vers l'application s'affiche (onglet **Ports** si besoin) : ouvre-le
+   dans le navigateur du téléphone.
+
+> Astuce : dans l'onglet **Ports**, tu peux passer le port en « Public » si tu
+> veux partager le lien.
+
 ## Déploiement Docker (ex. sur un NAS)
 
 Le projet inclut un `Dockerfile` et un `docker-compose.yml`. Aucune
