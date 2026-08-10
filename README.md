@@ -101,6 +101,32 @@ docker build -t dlmaposmand .
 docker run -d --name dlmaposmand -p 3000:3000 --restart unless-stopped dlmaposmand
 ```
 
+### Image Docker prête à l'emploi (GHCR) — recommandé
+
+Une **GitHub Action** ([`.github/workflows/docker-publish.yml`](.github/workflows/docker-publish.yml))
+reconstruit et publie l'image sur GHCR à chaque commit :
+`ghcr.io/foskcru/dlmaposmand:latest`.
+
+Utilise [`compose.image.yaml`](compose.image.yaml) :
+
+```yaml
+services:
+  dlmaposmand:
+    image: ghcr.io/foskcru/dlmaposmand:latest
+    container_name: dlmaposmand
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+```
+
+- **Prérequis (une fois)** : rendre le *package* GHCR public
+  (GitHub → ton profil → **Packages** → `dlmaposmand` → *Package settings* →
+  *Change visibility* → **Public**), ou connecter Docker à GHCR avec un token.
+- **Mettre à jour** : dans Dockge, *pull* l'image puis recrée le conteneur
+  (ou installe **Watchtower** pour une mise à jour 100 % automatique).
+
 ### Mise à jour automatique depuis GitHub (sans copier de fichiers)
 
 Le fichier [`compose.autoupdate.yaml`](compose.autoupdate.yaml) fournit une
