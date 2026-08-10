@@ -101,6 +101,31 @@ docker build -t dlmaposmand .
 docker run -d --name dlmaposmand -p 3000:3000 --restart unless-stopped dlmaposmand
 ```
 
+### Mise à jour automatique depuis GitHub (sans copier de fichiers)
+
+Le fichier [`compose.autoupdate.yaml`](compose.autoupdate.yaml) fournit une
+variante qui **clone la dernière version au démarrage**. Idéal pour Dockge :
+colle simplement son contenu dans un nouveau stack, puis **Start**. Pour mettre
+à jour, il suffit de faire **Restart** (aucun fichier à transférer).
+
+```yaml
+services:
+  dlmaposmand:
+    image: node:20-alpine
+    container_name: dlmaposmand
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - BRANCH=claude/web-app-carte-list-qnqn45
+    command: >
+      sh -c "apk add --no-cache git &&
+             rm -rf /srv/app &&
+             git clone --depth 1 -b \"$$BRANCH\" https://github.com/Foskcru/DlMapOsmAnd.git /srv/app &&
+             cd /srv/app && node server.js"
+```
+
 ### Notes NAS (Synology / QNAP / TrueNAS…)
 
 - Si le port **3000** est déjà utilisé, changez la partie gauche du mapping
