@@ -315,11 +315,25 @@
     const token = tokenForCountry(feature.properties && feature.properties.name);
     const available = !!token;
     const selected = token && token === selectedToken;
+    // Pays sélectionné : on masque complètement son contour (basse résolution)
+    // car les régions détaillées prennent le relais par-dessus. Ça évite le
+    // « double littoral » disgracieux.
+    if (selected) {
+      return { weight: 0, opacity: 0, fillOpacity: 0 };
+    }
+    // Quand on est en mode zoom/régions, on estompe les autres pays.
+    const dimmed = !!selectedToken;
     return {
       color: '#ffffff',
-      weight: selected ? 1.5 : 0.6,
+      weight: 0.6,
       fillColor: available ? '#ea7500' : '#cbd5e1',
-      fillOpacity: available ? (selected ? 0.25 : 0.72) : 0.35,
+      fillOpacity: dimmed
+        ? available
+          ? 0.28
+          : 0.18
+        : available
+        ? 0.72
+        : 0.35,
     };
   }
 
