@@ -13,7 +13,29 @@
     empty: document.getElementById('empty'),
     mapReset: document.getElementById('mapReset'),
     mapHint: document.getElementById('mapHint'),
+    themeToggle: document.getElementById('themeToggle'),
   };
+
+  /* ---------------------------------------------------------------- thème */
+
+  function currentTheme() {
+    return document.documentElement.getAttribute('data-theme') || 'dark';
+  }
+  function applyTheme(t) {
+    document.documentElement.setAttribute('data-theme', t);
+    try {
+      localStorage.setItem('theme', t);
+    } catch (e) {
+      /* ignore */
+    }
+    if (els.themeToggle) els.themeToggle.textContent = t === 'dark' ? '☀️' : '🌙';
+  }
+  applyTheme(currentTheme());
+  if (els.themeToggle) {
+    els.themeToggle.addEventListener('click', function () {
+      applyTheme(currentTheme() === 'dark' ? 'light' : 'dark');
+    });
+  }
 
   let allItems = [];
   let tokenCount = {}; // token pays -> nombre de cartes
@@ -111,20 +133,45 @@
    * Correspondance EXACTE (après normalisation) pour éviter les faux positifs
    * du type « Sachsen » ↔ « Sachsen-Anhalt ».
    */
+  // Régions administratives (nom Natural Earth) -> slug OsmAnd normalisé,
+  // pour les cas où OsmAnd traduit/renomme (surtout la France).
+  const REGION_ALIAS = {
+    occitanie: 'occitania',
+    grandest: 'greateast',
+    nouvelleaquitaine: 'newaquitaine',
+    bretagne: 'brittany',
+    normandie: 'normandy',
+    centrevaldeloire: 'centreloirevalley',
+  };
+
+  function regionKey(regionName) {
+    const k = norm(regionName);
+    return REGION_ALIAS[k] || k;
+  }
+
+  /**
+   * Sous-région OsmAnd correspondant à une entité région GeoJSON, sinon null.
+   * 1) correspondance au niveau du département (nom de l'entité) -> carte dédiée
+   * 2) sinon correspondance au niveau de la région parente -> carte de région
+   */
   function subForRegion(props, token) {
-    const cands = new Set(
+    const selfKeys = new Set(
       [props.name, props.name_local, props.name_alt].map(norm).filter(Boolean)
     );
-    for (const sub of subsByCountry[token] || []) {
-      // OsmAnd imbrique parfois région ET département (ex.
-      // "occitania_herault"). On teste le token entier ET chacun de ses
-      // segments -> "Hérault" correspond à "occitania_herault".
-      const keys = [norm(sub)].concat(sub.split('_').map(norm));
-      for (const k of keys) {
-        if (k && cands.has(k)) return sub;
+    const parentKey = props.region ? regionKey(props.region) : '';
+
+    const subs = subsByCountry[token] || [];
+    let regionMatch = null;
+    for (const sub of subs) {
+      const segs = sub.split('_').map(norm);
+      // 1) département : un segment == nom de l'entité (le plus précis)
+      if (segs.some((s) => selfKeys.has(s))) return sub;
+      // 2) région : un segment == région parente (mémorisé en repli)
+      if (!regionMatch && parentKey && segs.some((s) => s === parentKey)) {
+        regionMatch = sub;
       }
     }
-    return null;
+    return regionMatch;
   }
 
   /* -------------------------------------------------------------- filtres */
