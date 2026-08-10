@@ -514,6 +514,7 @@ function mockItems() {
     ['France_normandy_europe_2.obf.zip', '16.09.2024', '65.0'],
     ['Germany_bayern_europe_2.obf.zip', '17.09.2024', '210.0'],
     ['Germany_sachsen_europe_2.obf.zip', '16.09.2024', '95.0'],
+    ['Slovenia_europe_2.obf.zip', '11.09.2024', '55.0'],
     ['Spain_europe_2.obf.zip', '15.09.2024', '410.0'],
     ['Italy_europe_2.obf.zip', '14.09.2024', '390.0'],
     ['Russia_central-fed-district_europe_2.obf.zip', '10.09.2024', '150.0'],

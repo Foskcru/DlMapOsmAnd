@@ -41,6 +41,7 @@
   let allItems = [];
   let tokenCount = {}; // token pays -> nombre de cartes
   let subsByCountry = {}; // token pays -> [tokens de sous-régions]
+  let wholeCountrySet = {}; // token pays -> true si carte du pays entier
   const MAX_RENDER = 500;
 
   // --- Carte ---
@@ -503,15 +504,24 @@
     };
   }
 
+  // Vrai si le pays n'a PAS de cartes régionales mais une carte du pays entier
+  // -> toutes les régions sont « couvertes » par cette carte.
+  function countryOnlyWhole(token) {
+    const hasSubs = subsByCountry[token] && subsByCountry[token].length;
+    return !hasSubs && !!wholeCountrySet[token];
+  }
+
   function styleRegion(feature) {
     const sub = subForRegion(feature.properties || {}, selectedToken);
-    const available = !!sub;
+    const wholeMode = countryOnlyWhole(selectedToken);
+    const available = !!sub || wholeMode;
     const selected = sub && sub === selectedSub;
     return {
       color: '#7c2d12',
-      weight: selected ? 2.4 : 0.8,
+      // En mode « pays entier », pas de frontières internes (rendu d'un bloc).
+      weight: selected ? 2.4 : wholeMode ? 0 : 0.8,
       fillColor: selected ? '#c2410c' : available ? '#f59e0b' : '#e2e8f0',
-      fillOpacity: available ? (selected ? 0.95 : 0.7) : 0.25,
+      fillOpacity: available ? (selected ? 0.95 : 0.72) : 0.25,
     };
   }
 
@@ -677,10 +687,10 @@
             function () {
               const sub = subForRegion(props, selectedToken);
               const nm = noAccent(props.name);
-              // Indique si une corrélation avec une carte OsmAnd a été trouvée.
-              return sub
-                ? `${nm} — ✓ carte disponible (cliquez)`
-                : `${nm} — ✗ aucune carte`;
+              if (sub) return `${nm} — ✓ carte disponible (cliquez)`;
+              if (countryOnlyWhole(selectedToken))
+                return `${nm} — ✓ couvert par la carte du pays (cliquez)`;
+              return `${nm} — ✗ aucune carte`;
             },
             { sticky: true }
           );
@@ -698,6 +708,13 @@
                 selectedSub = sub;
                 regionLayer.setStyle(styleRegion);
                 render();
+              } else if (countryOnlyWhole(selectedToken)) {
+                // Pas de carte régionale : on propose la carte du pays entier.
+                selectedSub = '';
+                render();
+                setHint(
+                  `${frCountry(selectedToken)} : une seule carte couvre tout le pays — voir ci-dessous.`
+                );
               } else {
                 selectedSub = '';
                 render();
@@ -711,7 +728,9 @@
         },
       }).addTo(map);
       setHint(
-        `${label} : cliquez une région colorée sur la carte, ou choisissez dans la liste ci-dessous.`
+        countryOnlyWhole(token)
+          ? `${label} : une seule carte couvre tout le pays (cliquez la carte ou voir ci-dessous).`
+          : `${label} : cliquez une région colorée sur la carte, ou choisissez dans la liste ci-dessous.`
       );
     } else {
       setHint(
@@ -766,10 +785,14 @@
       allItems = data.items;
       tokenCount = {};
       subsByCountry = {};
+      wholeCountrySet = {};
       for (const it of allItems) {
         tokenCount[it.country] = (tokenCount[it.country] || 0) + 1;
         if (it.subregion) {
           (subsByCountry[it.country] = subsByCountry[it.country] || []).push(it.subregion);
+        } else if (it.kind === 'map' || it.kind === 'road_map') {
+          // carte couvrant tout le pays
+          wholeCountrySet[it.country] = true;
         }
       }
       populateFilters(allItems);
