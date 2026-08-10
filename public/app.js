@@ -14,6 +14,7 @@
     mapReset: document.getElementById('mapReset'),
     mapHint: document.getElementById('mapHint'),
     themeToggle: document.getElementById('themeToggle'),
+    onlyUnlinked: document.getElementById('onlyUnlinked'),
   };
 
   /* ---------------------------------------------------------------- thème */
@@ -270,27 +271,54 @@
     return REGION_ALIAS[k] || k;
   }
 
+  const STOP = new Set([
+    'nord', 'sud', 'est', 'ouest', 'north', 'south', 'east', 'west', 'central',
+    'centre', 'region', 'province', 'regione', 'valle', 'valley', 'vallee',
+    'great', 'grand', 'island', 'islands', 'saint', 'republic', 'republique',
+    'district', 'oblast', 'krai', 'prefecture', 'upper', 'lower', 'haute', 'basse',
+  ]);
+  function wordsOf(s) {
+    return String(s || '')
+      .split(/[^A-Za-zÀ-ÿ0-9]+/)
+      .map(norm)
+      .filter((w) => w.length >= 5 && !STOP.has(w));
+  }
+
   /**
    * Sous-région OsmAnd correspondant à une entité région GeoJSON, sinon null.
-   * 1) correspondance au niveau du département (nom de l'entité) -> carte dédiée
-   * 2) sinon correspondance au niveau de la région parente -> carte de région
+   * 1) niveau département (nom de l'entité) -> carte dédiée (prioritaire)
+   * 2) niveau région parente -> carte de région (repli)
+   * Prend en compte segments ET mots (ex. « aosta » dans « Valle d'Aosta »).
    */
   function subForRegion(props, token) {
-    const selfKeys = new Set(
-      [props.name, props.name_local, props.name_alt].map(norm).filter(Boolean)
-    );
-    const parentKey = props.region ? regionKey(props.region) : '';
-
-    const subs = subsByCountry[token] || [];
-    let regionMatch = null;
-    for (const sub of subs) {
-      const segs = sub.split('_').map(norm);
-      // 1) département : un segment == nom de l'entité (le plus précis)
-      if (segs.some((s) => selfKeys.has(s))) return sub;
-      // 2) région : un segment == région parente (mémorisé en repli)
-      if (!regionMatch && parentKey && segs.some((s) => s === parentKey)) {
-        regionMatch = sub;
+    const selfKeys = new Set();
+    [props.name, props.name_local, props.name_alt].forEach((n) => {
+      if (n) {
+        selfKeys.add(norm(n));
+        wordsOf(n).forEach((w) => selfKeys.add(w));
       }
+    });
+    const parentSet = new Set();
+    if (props.region) {
+      parentSet.add(regionKey(props.region));
+      wordsOf(props.region).forEach((w) => parentSet.add(w));
+    }
+
+    let regionMatch = null;
+    for (const sub of subsByCountry[token] || []) {
+      const subKeys = new Set([norm(sub)]);
+      sub.split('_').forEach((s) => subKeys.add(norm(s)));
+      wordsOf(sub.replace(/_/g, ' ')).forEach((w) => subKeys.add(w));
+
+      let hitSelf = false;
+      let hitParent = false;
+      subKeys.forEach((k) => {
+        if (!k) return;
+        if (selfKeys.has(k)) hitSelf = true;
+        if (parentSet.has(k)) hitParent = true;
+      });
+      if (hitSelf) return sub; // département (précis)
+      if (!regionMatch && hitParent) regionMatch = sub; // région (repli)
     }
     return regionMatch;
   }
@@ -334,7 +362,10 @@
     const group = els.group.value;
     const sort = els.sort.value;
 
+    const onlyUnlinked = els.onlyUnlinked && els.onlyUnlinked.checked;
+
     let out = allItems.filter((it) => {
+      if (onlyUnlinked && it.located !== false) return false;
       if (country && it.country !== country) return false;
       if (selectedSub && it.subregion !== selectedSub) return false;
       if (kind && it.kind !== kind) return false;
@@ -400,6 +431,19 @@
       b2.className = 'badge group';
       b2.textContent = frGroup(it.region_group);
       badges.appendChild(b2);
+    }
+    // Icône de localisation sur la carte du monde.
+    if (it.located === true) {
+      const bl = document.createElement('span');
+      bl.className = 'badge loc-yes';
+      bl.textContent = '📍 sur la carte';
+      badges.appendChild(bl);
+    } else if (it.located === false) {
+      const bl = document.createElement('span');
+      bl.className = 'badge loc-no';
+      bl.title = 'Carte OsmAnd non reliée à la carte du monde';
+      bl.textContent = '⚠ non localisée';
+      badges.appendChild(bl);
     }
     card.appendChild(badges);
 
@@ -747,8 +791,11 @@
   els.kind.addEventListener('change', render);
   els.group.addEventListener('change', render);
   els.sort.addEventListener('change', render);
+  if (els.onlyUnlinked) els.onlyUnlinked.addEventListener('change', render);
   els.refresh.addEventListener('click', () => loadMaps(true));
   els.mapReset.addEventListener('click', resetSelection);
 
-  loadGeo().then(() => loadMaps(false));
+  // Chargés en parallèle : la liste ne doit pas attendre le gros fond de carte.
+  loadMaps(false);
+  loadGeo();
 })();

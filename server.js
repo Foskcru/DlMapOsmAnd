@@ -71,6 +71,101 @@ function getRegionsForCountry(country) {
   return idx[normCountry(country)] || [];
 }
 
+/* --------- Corrélation carte OsmAnd <-> régions géographiques (admin1) ------ */
+
+// Régions administratives -> slug OsmAnd (cas traduits).
+const REGION_ALIAS = {
+  occitanie: 'occitania',
+  grandest: 'greateast',
+  nouvelleaquitaine: 'newaquitaine',
+  bretagne: 'brittany',
+  normandie: 'normandy',
+  centrevaldeloire: 'centreloirevalley',
+};
+// Alias de pays (token OsmAnd -> clé admin1).
+const COUNTRY_ALIAS = {
+  us: 'unitedstatesofamerica',
+  greatbritain: 'unitedkingdom',
+  czechrepublic: 'czechia',
+  congodr: 'democraticrepublicofthecongo',
+  cotedivoire: 'ivorycoast',
+};
+// Mots génériques ignorés dans l'appariement par mots.
+const STOP = new Set([
+  'nord', 'sud', 'est', 'ouest', 'north', 'south', 'east', 'west', 'central',
+  'centre', 'region', 'province', 'regione', 'valle', 'valley', 'vallee',
+  'great', 'grand', 'island', 'islands', 'saint', 'republic', 'republique',
+  'district', 'oblast', 'krai', 'prefecture', 'upper', 'lower', 'haute', 'basse',
+]);
+
+function regionKey(name) {
+  const k = normCountry(name);
+  return REGION_ALIAS[k] || k;
+}
+function wordsOf(s) {
+  return String(s || '')
+    .split(/[^A-Za-zÀ-ÿ0-9]+/)
+    .map(normCountry)
+    .filter((w) => w.length >= 5 && !STOP.has(w));
+}
+
+let admin1Keys = null; // { countryKeys:Set, regionKeys:Map(ck->Set) }
+function buildAdmin1Keys() {
+  if (admin1Keys) return admin1Keys;
+  const idx = loadAdmin1();
+  const countryKeys = new Set();
+  const regionKeys = new Map();
+  for (const ck in idx) {
+    countryKeys.add(ck);
+    const set = new Set();
+    regionKeys.set(ck, set);
+    for (const f of idx[ck]) {
+      const p = f.properties || {};
+      [p.name, p.name_local, p.name_alt].forEach((n) => {
+        if (n) {
+          set.add(normCountry(n));
+          wordsOf(n).forEach((w) => set.add(w));
+        }
+      });
+      if (p.region) {
+        set.add(regionKey(p.region));
+        wordsOf(p.region).forEach((w) => set.add(w));
+      }
+    }
+  }
+  admin1Keys = { countryKeys, regionKeys };
+  return admin1Keys;
+}
+
+function matchCountryKey(token) {
+  const { countryKeys } = buildAdmin1Keys();
+  const nt = normCountry(token);
+  if (countryKeys.has(nt)) return nt;
+  if (COUNTRY_ALIAS[nt] && countryKeys.has(COUNTRY_ALIAS[nt])) return COUNTRY_ALIAS[nt];
+  for (const ck of countryKeys) {
+    if (ck.length >= 4 && (nt === ck || nt.startsWith(ck) || ck.startsWith(nt))) return ck;
+  }
+  return null;
+}
+
+// Renvoie true (localisée sur la carte), false (carte OsmAnd non reliée à une
+// région géographique) ou null (non applicable : voix, polices…).
+function computeLocated(item) {
+  if (item.kind === 'voice' || item.kind === 'fonts') return null;
+  const ck = matchCountryKey(item.country);
+  if (!item.subregion) return !!ck; // carte du pays entier
+  if (!ck) return false;
+  const keys = buildAdmin1Keys().regionKeys.get(ck) || new Set();
+  const subKeys = new Set();
+  subKeys.add(normCountry(item.subregion));
+  item.subregion.split('_').forEach((seg) => subKeys.add(normCountry(seg)));
+  wordsOf(item.subregion.replace(/_/g, ' ')).forEach((w) => subKeys.add(w));
+  for (const k of subKeys) {
+    if (k && keys.has(k)) return true;
+  }
+  return false;
+}
+
 /**
  * Décompresse un buffer selon le Content-Encoding, ou selon les octets
  * magiques (gzip = 1f 8b) si le serveur ne renvoie pas l'en-tête.
@@ -438,16 +533,26 @@ function mockItems() {
   );
 }
 
+// Ajoute le champ `located` à chaque carte (corrélation avec la carte géo).
+function addLocated(items) {
+  try {
+    for (const it of items) it.located = computeLocated(it);
+  } catch (e) {
+    console.warn('calcul localisation impossible :', e.message);
+  }
+  return items;
+}
+
 async function getMaps(force = false) {
   const now = manualNow();
   if (process.env.MOCK_MAPS === '1') {
-    return { items: mockItems(), cached: false, fetchedAt: now };
+    return { items: addLocated(mockItems()), cached: false, fetchedAt: now };
   }
   if (!force && cache.data && now - cache.fetchedAt < CACHE_TTL_MS) {
     return { items: cache.data, cached: true, fetchedAt: cache.fetchedAt };
   }
   const res = await fetchOsmandList(OSMAND_LIST_URL);
-  const items = parseList(res.body);
+  const items = addLocated(parseList(res.body));
   cache = { data: items, fetchedAt: now };
   return { items, cached: false, fetchedAt: now };
 }
