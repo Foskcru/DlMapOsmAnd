@@ -100,13 +100,14 @@ docker build -t dlmaposmand .
 docker run -d --name dlmaposmand -p 3000:3000 --restart unless-stopped dlmaposmand
 ```
 
-### Image Docker prête à l'emploi (GHCR) — recommandé
+### Image Docker prête à l'emploi (GHCR)
 
 Une **GitHub Action** ([`.github/workflows/docker-publish.yml`](.github/workflows/docker-publish.yml))
 reconstruit et publie l'image sur GHCR à chaque commit :
 `ghcr.io/foskcru/dlmaposmand:latest`.
 
-Utilise [`compose.image.yaml`](compose.image.yaml) :
+Dans **Dockge / Portainer / docker compose**, colle cette configuration
+([`compose.image.yaml`](compose.image.yaml)) :
 
 ```yaml
 services:
@@ -120,11 +121,16 @@ services:
       - PORT=3000
 ```
 
-- **Prérequis (une fois)** : rendre le *package* GHCR public
-  (GitHub → ton profil → **Packages** → `dlmaposmand` → *Package settings* →
-  *Change visibility* → **Public**), ou connecter Docker à GHCR avec un token.
-- **Mettre à jour** : dans Dockge, *pull* l'image puis recrée le conteneur
-  (ou installe **Watchtower** pour une mise à jour 100 % automatique).
+Puis démarre et ouvre **http://IP-DU-SERVEUR:3000** (change `3000:3000`
+en `AUTRE-PORT:3000` si le port est pris).
+
+- **Prérequis (une seule fois)** : le *package* GHCR doit être **public** —
+  GitHub → avatar → **Your packages** → `dlmaposmand` → **Package settings** →
+  **Danger Zone** → **Change visibility** → **Public**.
+  *(Alternative : `docker login ghcr.io` avec un token `read:packages`.)*
+- **Mettre à jour** : `docker pull ghcr.io/foskcru/dlmaposmand:latest` puis
+  recrée le conteneur (ou le bouton *pull/update* de Dockge, ou **Watchtower**
+  pour une mise à jour automatique).
 
 ### Mise à jour automatique depuis GitHub (sans copier de fichiers) — le plus simple
 

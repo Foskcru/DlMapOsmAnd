@@ -93,6 +93,119 @@
     return m[kind] || kind;
   }
 
+  /* ------------------------------------------------------ traduction FR */
+
+  // Continents / grands groupes OsmAnd -> français.
+  const GROUP_FR = {
+    africa: 'Afrique',
+    asia: 'Asie',
+    'australia-oceania': 'Australie-Océanie',
+    centralamerica: 'Amérique centrale',
+    europe: 'Europe',
+    'north-america': 'Amérique du Nord',
+    northamerica: 'Amérique du Nord',
+    'south-america': 'Amérique du Sud',
+    southamerica: 'Amérique du Sud',
+    us: 'États-Unis',
+    russia: 'Russie',
+    gb: 'Royaume-Uni',
+    germany: 'Allemagne',
+    france: 'France',
+    italy: 'Italie',
+    spain: 'Espagne',
+  };
+
+  // Régions françaises (slug OsmAnd -> nom français), clés normalisées.
+  const REGION_FR = {
+    iledefrance: 'Île-de-France',
+    provencealpescotedazur: 'Provence-Alpes-Côte d’Azur',
+    auvergnerhonealpes: 'Auvergne-Rhône-Alpes',
+    bourgognefranchecomte: 'Bourgogne-Franche-Comté',
+    brittany: 'Bretagne',
+    centreloirevalley: 'Centre-Val de Loire',
+    greateast: 'Grand Est',
+    hautsdefrance: 'Hauts-de-France',
+    newaquitaine: 'Nouvelle-Aquitaine',
+    normandy: 'Normandie',
+    occitania: 'Occitanie',
+    paysdelaloire: 'Pays de la Loire',
+    corse: 'Corse',
+  };
+
+  // Pays (token OsmAnd normalisé -> français). Liste des principaux ; les
+  // autres retombent sur une version « jolie » du nom d'origine.
+  const COUNTRY_FR = {
+    france: 'France', germany: 'Allemagne', spain: 'Espagne', italy: 'Italie',
+    portugal: 'Portugal', belgium: 'Belgique', netherlands: 'Pays-Bas',
+    luxembourg: 'Luxembourg', switzerland: 'Suisse', austria: 'Autriche',
+    poland: 'Pologne', czechrepublic: 'Tchéquie', slovakia: 'Slovaquie',
+    hungary: 'Hongrie', romania: 'Roumanie', bulgaria: 'Bulgarie',
+    greece: 'Grèce', croatia: 'Croatie', slovenia: 'Slovénie',
+    serbia: 'Serbie', bosniaandherzegovina: 'Bosnie-Herzégovine',
+    montenegro: 'Monténégro', albania: 'Albanie', northmacedonia: 'Macédoine du Nord',
+    macedonia: 'Macédoine du Nord', kosovo: 'Kosovo', denmark: 'Danemark',
+    sweden: 'Suède', norway: 'Norvège', finland: 'Finlande', iceland: 'Islande',
+    ireland: 'Irlande', greatbritain: 'Royaume-Uni', unitedkingdom: 'Royaume-Uni',
+    england: 'Angleterre', scotland: 'Écosse', wales: 'Pays de Galles',
+    estonia: 'Estonie', latvia: 'Lettonie', lithuania: 'Lituanie',
+    belarus: 'Biélorussie', ukraine: 'Ukraine', moldova: 'Moldavie',
+    russia: 'Russie', turkey: 'Turquie', cyprus: 'Chypre', malta: 'Malte',
+    us: 'États-Unis', unitedstatesofamerica: 'États-Unis', canada: 'Canada',
+    mexico: 'Mexique', brazil: 'Brésil', argentina: 'Argentine', chile: 'Chili',
+    peru: 'Pérou', colombia: 'Colombie', venezuela: 'Venezuela', bolivia: 'Bolivie',
+    ecuador: 'Équateur', paraguay: 'Paraguay', uruguay: 'Uruguay',
+    china: 'Chine', japan: 'Japon', southkorea: 'Corée du Sud', northkorea: 'Corée du Nord',
+    india: 'Inde', pakistan: 'Pakistan', bangladesh: 'Bangladesh', vietnam: 'Viêt Nam',
+    thailand: 'Thaïlande', cambodia: 'Cambodge', laos: 'Laos', myanmar: 'Birmanie',
+    malaysia: 'Malaisie', singapore: 'Singapour', indonesia: 'Indonésie',
+    philippines: 'Philippines', taiwan: 'Taïwan', mongolia: 'Mongolie',
+    kazakhstan: 'Kazakhstan', uzbekistan: 'Ouzbékistan', afghanistan: 'Afghanistan',
+    iran: 'Iran', iraq: 'Irak', syria: 'Syrie', lebanon: 'Liban', jordan: 'Jordanie',
+    israel: 'Israël', saudiarabia: 'Arabie saoudite', yemen: 'Yémen', oman: 'Oman',
+    unitedarabemirates: 'Émirats arabes unis', qatar: 'Qatar', kuwait: 'Koweït',
+    georgia: 'Géorgie', armenia: 'Arménie', azerbaijan: 'Azerbaïdjan',
+    morocco: 'Maroc', algeria: 'Algérie', tunisia: 'Tunisie', libya: 'Libye',
+    egypt: 'Égypte', sudan: 'Soudan', ethiopia: 'Éthiopie', kenya: 'Kenya',
+    tanzania: 'Tanzanie', uganda: 'Ouganda', nigeria: 'Nigéria', ghana: 'Ghana',
+    ivorycoast: 'Côte d’Ivoire', cotedivoire: 'Côte d’Ivoire', senegal: 'Sénégal',
+    cameroon: 'Cameroun', southafrica: 'Afrique du Sud', namibia: 'Namibie',
+    botswana: 'Botswana', zimbabwe: 'Zimbabwe', mozambique: 'Mozambique',
+    madagascar: 'Madagascar', angola: 'Angola', congo: 'Congo',
+    congodr: 'République démocratique du Congo', mali: 'Mali', niger: 'Niger',
+    chad: 'Tchad', mauritania: 'Mauritanie', australia: 'Australie',
+    newzealand: 'Nouvelle-Zélande',
+  };
+
+  function prettify(token) {
+    return String(token || '')
+      .split(/[-_]/)
+      .filter(Boolean)
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(' ');
+  }
+
+  function frCountry(token) {
+    return COUNTRY_FR[norm(token)] || prettify(token);
+  }
+
+  function frGroup(g) {
+    return GROUP_FR[g] || prettify(g);
+  }
+
+  function frSub(sub) {
+    return String(sub || '')
+      .split('_')
+      .filter(Boolean)
+      .map((seg) => REGION_FR[norm(seg)] || prettify(seg))
+      .join(' — ');
+  }
+
+  // Titre français d'une carte, ex. "France — Occitanie — Herault".
+  function frLabel(item) {
+    const c = frCountry(item.country);
+    return item.subregion ? c + ' — ' + frSub(item.subregion) : c;
+  }
+
   function debounce(fn, delay) {
     let t;
     return function () {
@@ -177,14 +290,13 @@
   /* -------------------------------------------------------------- filtres */
 
   function populateFilters(items) {
-    const byCountry = {};
-    for (const it of items) if (!byCountry[it.country]) byCountry[it.country] = it.country_label;
-    Object.keys(byCountry)
-      .sort((a, b) => byCountry[a].localeCompare(byCountry[b], 'fr'))
+    const countries = Array.from(new Set(items.map((i) => i.country)));
+    countries
+      .sort((a, b) => frCountry(a).localeCompare(frCountry(b), 'fr'))
       .forEach((c) => {
         const o = document.createElement('option');
         o.value = c;
-        o.textContent = `${byCountry[c]} (${tokenCount[c]})`;
+        o.textContent = `${frCountry(c)} (${tokenCount[c]})`;
         els.country.appendChild(o);
       });
 
@@ -198,11 +310,11 @@
       });
 
     Array.from(new Set(items.map((i) => i.region_group).filter(Boolean)))
-      .sort()
+      .sort((a, b) => frGroup(a).localeCompare(frGroup(b), 'fr'))
       .forEach((g) => {
         const o = document.createElement('option');
         o.value = g;
-        o.textContent = g.charAt(0).toUpperCase() + g.slice(1).replace('-', ' ');
+        o.textContent = frGroup(g);
         els.group.appendChild(o);
       });
   }
@@ -220,7 +332,9 @@
       if (kind && it.kind !== kind) return false;
       if (group && it.region_group !== group) return false;
       if (q) {
-        const hay = (it.label + ' ' + it.name + ' ' + it.description).toLowerCase();
+        const hay = (
+          frLabel(it) + ' ' + it.label + ' ' + it.name + ' ' + it.description
+        ).toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
@@ -229,7 +343,7 @@
     out.sort((a, b) => {
       if (sort === 'size') return (b.size || 0) - (a.size || 0);
       if (sort === 'date') return dateVal(b.date) - dateVal(a.date);
-      return a.label.localeCompare(b.label, 'fr');
+      return frLabel(a).localeCompare(frLabel(b), 'fr');
     });
     return out;
   }
@@ -259,12 +373,12 @@
     card.className = 'card';
 
     const h3 = document.createElement('h3');
-    h3.textContent = it.label;
+    h3.textContent = frLabel(it); // nom en français
     card.appendChild(h3);
 
     const fn = document.createElement('div');
     fn.className = 'filename';
-    fn.textContent = it.name;
+    fn.textContent = it.name; // vrai nom de fichier conservé
     card.appendChild(fn);
 
     const badges = document.createElement('div');
@@ -276,7 +390,7 @@
     if (it.region_group) {
       const b2 = document.createElement('span');
       b2.className = 'badge group';
-      b2.textContent = it.region_group;
+      b2.textContent = frGroup(it.region_group);
       badges.appendChild(b2);
     }
     card.appendChild(badges);
@@ -366,7 +480,8 @@
         layer.bindTooltip(
           function () {
             const t = tokenForCountry(name);
-            return t ? `${name} — ${tokenCount[t]} carte(s)` : `${name} — aucune carte`;
+            const disp = t ? frCountry(t) : name;
+            return t ? `${disp} — ${tokenCount[t]} carte(s)` : `${disp} — aucune carte`;
           },
           { sticky: true }
         );
@@ -436,7 +551,7 @@
       }
     }
 
-    const label = w ? w.name : token;
+    const label = frCountry(token);
     if (feats.length) {
       regionLayer = L.geoJSON({ type: 'FeatureCollection', features: feats }, {
         style: styleRegion,
@@ -483,8 +598,8 @@
         `${label} : régions non disponibles sur la carte, choisissez dans la liste ci-dessous.`
       );
     }
-
-    scrollToResults();
+    // Pas de défilement automatique ici : on reste sur la carte pour pouvoir
+    // cliquer une région. Le défilement vers la liste se fait au clic région.
   }
 
   function scrollToResults() {
