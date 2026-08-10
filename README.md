@@ -35,8 +35,8 @@ MOCK_MAPS=1 node server.js
 
 `list.php` ne renvoie pas d'en-têtes CORS. Un `fetch` lancé directement depuis
 le navigateur serait donc bloqué. Le serveur Node fait office de **proxy** :
-il récupère le XML de `list.php`, le transforme en JSON propre, et sert le
-frontend statique. Aucun service tiers n'est nécessaire.
+il récupère la page de `list.php` (tableau HTML), la transforme en JSON propre,
+et sert le frontend statique. Aucun service tiers n'est nécessaire.
 
 ## Prérequis
 
@@ -63,8 +63,7 @@ PORT=8080 node server.js
 
 Sans rien installer, avec ton compte GitHub :
 
-1. Sur le téléphone, ouvre le dépôt sur **github.com** et sélectionne la
-   branche `claude/web-app-carte-list-qnqn45`.
+1. Sur le téléphone, ouvre le dépôt sur **github.com** (branche `main`).
 2. Bouton vert **Code** → onglet **Codespaces** → **Create codespace**.
 3. Attends le démarrage. Grâce au fichier `.devcontainer/devcontainer.json`,
    le serveur se lance tout seul et le port **3000** est ouvert
@@ -127,12 +126,13 @@ services:
 - **Mettre à jour** : dans Dockge, *pull* l'image puis recrée le conteneur
   (ou installe **Watchtower** pour une mise à jour 100 % automatique).
 
-### Mise à jour automatique depuis GitHub (sans copier de fichiers)
+### Mise à jour automatique depuis GitHub (sans copier de fichiers) — le plus simple
 
 Le fichier [`compose.autoupdate.yaml`](compose.autoupdate.yaml) fournit une
-variante qui **clone la dernière version au démarrage**. Idéal pour Dockge :
-colle simplement son contenu dans un nouveau stack, puis **Start**. Pour mettre
-à jour, il suffit de faire **Restart** (aucun fichier à transférer).
+variante qui **clone la dernière version de `main` au démarrage**. C'est la
+méthode la plus simple pour n'importe qui (Dockge, Portainer…) : colle son
+contenu dans un nouveau stack, puis **Start**. Pour mettre à jour, un simple
+**Restart** suffit (aucun fichier à transférer, aucun registre).
 
 ```yaml
 services:
@@ -144,11 +144,10 @@ services:
       - "3000:3000"
     environment:
       - PORT=3000
-      - BRANCH=claude/web-app-carte-list-qnqn45
     command: >
       sh -c "apk add --no-cache git &&
              rm -rf /srv/app &&
-             git clone --depth 1 -b \"$$BRANCH\" https://github.com/Foskcru/DlMapOsmAnd.git /srv/app &&
+             git clone --depth 1 https://github.com/Foskcru/DlMapOsmAnd.git /srv/app &&
              cd /srv/app && node server.js"
 ```
 

@@ -8,11 +8,10 @@ services:
       - "3000:3000"
     environment:
       - PORT=3000
-      - BRANCH=claude/web-app-carte-list-qnqn45
     # À chaque (re)démarrage : installe git, clone la dernière version de la
-    # branche, puis lance le serveur. Aucun fichier à copier sur le NAS.
+    # branche par défaut (main), puis lance le serveur. Aucun fichier à copier.
     command: >
       sh -c "apk add --no-cache git &&
              rm -rf /srv/app &&
-             git clone --depth 1 -b \"$$BRANCH\" https://github.com/Foskcru/DlMapOsmAnd.git /srv/app &&
+             git clone --depth 1 https://github.com/Foskcru/DlMapOsmAnd.git /srv/app &&
              cd /srv/app && node server.js"
