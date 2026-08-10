@@ -1,0 +1,11 @@
+services:
+  dlmaposmand:
+    # Image publiée automatiquement sur GHCR par la GitHub Action.
+    image: ghcr.io/foskcru/dlmaposmand:latest
+    container_name: dlmaposmand
+    restart: unless-stopped
+    ports:
+      # Modifie le port de gauche si 3000 est déjà pris.
+      - "3000:3000"
+    environment:
+      - PORT=3000
