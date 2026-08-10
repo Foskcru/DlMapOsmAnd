@@ -116,7 +116,13 @@
       [props.name, props.name_local, props.name_alt].map(norm).filter(Boolean)
     );
     for (const sub of subsByCountry[token] || []) {
-      if (cands.has(norm(sub))) return sub;
+      // OsmAnd imbrique parfois région ET département (ex.
+      // "occitania_herault"). On teste le token entier ET chacun de ses
+      // segments -> "Hérault" correspond à "occitania_herault".
+      const keys = [norm(sub)].concat(sub.split('_').map(norm));
+      for (const k of keys) {
+        if (k && cands.has(k)) return sub;
+      }
     }
     return null;
   }
