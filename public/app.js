@@ -60,6 +60,12 @@
       .replace(/[^a-z0-9]/g, '');
   }
 
+  // Retire les accents d'un texte affiché (en gardant la casse), pour un
+  // rendu uniforme et sans souci d'accents.
+  function noAccent(s) {
+    return (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '');
+  }
+
   const ALIASES = {
     unitedstatesofamerica: 'us',
     unitedstates: 'us',
@@ -185,19 +191,21 @@
   }
 
   function frCountry(token) {
-    return COUNTRY_FR[norm(token)] || prettify(token);
+    return noAccent(COUNTRY_FR[norm(token)] || prettify(token));
   }
 
   function frGroup(g) {
-    return GROUP_FR[g] || prettify(g);
+    return noAccent(GROUP_FR[g] || prettify(g));
   }
 
   function frSub(sub) {
-    return String(sub || '')
-      .split('_')
-      .filter(Boolean)
-      .map((seg) => REGION_FR[norm(seg)] || prettify(seg))
-      .join(' — ');
+    return noAccent(
+      String(sub || '')
+        .split('_')
+        .filter(Boolean)
+        .map((seg) => REGION_FR[norm(seg)] || prettify(seg))
+        .join(' — ')
+    );
   }
 
   // Titre français d'une carte, ex. "France — Occitanie — Herault".
@@ -560,7 +568,8 @@
           layer.bindTooltip(
             function () {
               const sub = subForRegion(props, selectedToken);
-              return sub ? `${props.name} ✓ carte dispo` : `${props.name}`;
+              const nm = noAccent(props.name);
+              return sub ? `${nm} ✓ carte dispo` : `${nm}`;
             },
             { sticky: true }
           );
@@ -582,7 +591,7 @@
                 selectedSub = '';
                 render();
                 setHint(
-                  `« ${props.name} » n'a pas de carte dédiée — choisissez une région disponible dans la liste ci-dessous.`
+                  `« ${noAccent(props.name)} » n'a pas de carte dédiée — choisissez une région disponible dans la liste ci-dessous.`
                 );
               }
               scrollToResults();
