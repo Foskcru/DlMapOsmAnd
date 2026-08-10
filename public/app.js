@@ -530,6 +530,72 @@
     }
   }
 
+  // Décompose un (multi)polygone Leaflet en une liste de bounds (une par partie),
+  // pour repérer les territoires éloignés (ex. outre-mer).
+  function partsBounds(layer) {
+    const out = [];
+    let lls;
+    try {
+      lls = layer.getLatLngs();
+    } catch (_) {
+      return out;
+    }
+    function boundsOfRings(rings) {
+      const b = L.latLngBounds([]);
+      rings.forEach((r) => r.forEach((pt) => b.extend(pt)));
+      return b;
+    }
+    if (lls.length && Array.isArray(lls[0]) && Array.isArray(lls[0][0])) {
+      lls.forEach((poly) => out.push(boundsOfRings(poly)));
+    } else if (lls.length) {
+      out.push(boundsOfRings(lls));
+    }
+    return out;
+  }
+
+  // À partir d'une liste de bounds, renvoie l'emprise de l'amas principal
+  // (on écarte les ~10 % de parties les plus éloignées : outre-mer, îles).
+  function mainCluster(list) {
+    const items = list
+      .filter((b) => b && b.isValid())
+      .map((b) => ({ b, c: b.getCenter() }));
+    if (!items.length) return null;
+    if (items.length <= 2) {
+      const bb = L.latLngBounds([]);
+      items.forEach((i) => bb.extend(i.b));
+      return bb;
+    }
+    const med = (a) => {
+      const s = [...a].sort((x, y) => x - y);
+      return s[Math.floor(s.length / 2)];
+    };
+    const mLat = med(items.map((i) => i.c.lat));
+    const mLon = med(items.map((i) => i.c.lng));
+    items.forEach((i) => (i.d = Math.hypot(i.c.lat - mLat, i.c.lng - mLon)));
+    items.sort((a, b) => a.d - b.d);
+    const keep = items.slice(0, Math.max(1, Math.ceil(items.length * 0.9)));
+    const bb = L.latLngBounds([]);
+    keep.forEach((i) => bb.extend(i.b));
+    return bb;
+  }
+
+  // Zoom sur la partie principale d'un pays (via ses régions si dispo,
+  // sinon via les parties de son polygone).
+  function zoomToCountry(regionSubLayers, worldLayer) {
+    let list = [];
+    if (regionSubLayers && regionSubLayers.length) {
+      list = regionSubLayers.map((l) => l.getBounds());
+    } else if (worldLayer) {
+      list = partsBounds(worldLayer);
+    }
+    const bounds = mainCluster(list);
+    if (bounds && bounds.isValid()) {
+      map.fitBounds(bounds, { padding: [12, 12] });
+    } else if (worldLayer) {
+      map.fitBounds(worldLayer.getBounds(), { padding: [12, 12] });
+    }
+  }
+
   /** Sélectionne un pays : filtre la liste, zoome et dessine ses régions. */
   async function selectCountry(token, name) {
     selectedToken = token;
@@ -541,9 +607,7 @@
 
     if (!name) name = nameForToken(token);
 
-    // Zoom sur le pays.
     const w = worldLayers.find((x) => x.name === name);
-    if (w) map.fitBounds(w.layer.getBounds(), { padding: [10, 10] });
 
     // Dessin des régions du pays.
     clearRegionLayer();
@@ -569,7 +633,10 @@
             function () {
               const sub = subForRegion(props, selectedToken);
               const nm = noAccent(props.name);
-              return sub ? `${nm} ✓ carte dispo` : `${nm}`;
+              // Indique si une corrélation avec une carte OsmAnd a été trouvée.
+              return sub
+                ? `${nm} — ✓ carte disponible (cliquez)`
+                : `${nm} — ✗ aucune carte`;
             },
             { sticky: true }
           );
@@ -607,6 +674,12 @@
         `${label} : régions non disponibles sur la carte, choisissez dans la liste ci-dessous.`
       );
     }
+
+    // Zoom sur la partie principale du pays (évite de dézoomer à cause des
+    // territoires d'outre-mer). Basé sur les régions si dispo, sinon le pays.
+    const subLayers = regionLayer ? regionLayer.getLayers() : null;
+    zoomToCountry(subLayers, w ? w.layer : null);
+
     // Pas de défilement automatique ici : on reste sur la carte pour pouvoir
     // cliquer une région. Le défilement vers la liste se fait au clic région.
   }
