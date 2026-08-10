@@ -518,8 +518,7 @@
     const selected = sub && sub === selectedSub;
     return {
       color: '#7c2d12',
-      // En mode « pays entier », pas de frontières internes (rendu d'un bloc).
-      weight: selected ? 2.4 : wholeMode ? 0 : 0.8,
+      weight: selected ? 2.4 : 0.8, // contours des régions toujours visibles
       fillColor: selected ? '#c2410c' : available ? '#f59e0b' : '#e2e8f0',
       fillOpacity: available ? (selected ? 0.95 : 0.72) : 0.25,
     };
