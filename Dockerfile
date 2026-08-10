@@ -10,6 +10,11 @@ COPY server.js ./
 COPY public ./public
 COPY data ./data
 
+# COPY conserve les permissions des fichiers source ; si celles-ci sont
+# restrictives (ex. extraction d'un ZIP sur un NAS), l'utilisateur non-root
+# "node" ne peut plus les lire. On force des droits de lecture/traversée.
+RUN chmod -R a+rX /app
+
 ENV NODE_ENV=production
 ENV PORT=3000
 
