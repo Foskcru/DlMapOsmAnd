@@ -19,6 +19,13 @@ const path = require('path');
 const { URL } = require('url');
 
 const PORT = process.env.PORT || 3000;
+// Version de l'application (lue dans package.json), affichée au démarrage.
+let VERSION = 'inconnue';
+try {
+  VERSION = require('./package.json').version || VERSION;
+} catch (e) {
+  /* ignore */
+}
 const OSMAND_LIST_URL = 'https://download.osmand.net/list.php';
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 heure
 
@@ -686,7 +693,7 @@ const server = http.createServer(async (req, res) => {
 // (permet d'importer les fonctions pour les tests).
 if (require.main === module) {
   server.listen(PORT, () => {
-    console.log(`DlMapOsmAnd démarré sur http://localhost:${PORT}`);
+    console.log(`DlMapOsmAnd v${VERSION} démarré sur le port ${PORT}`);
     console.log(`Source des cartes : ${OSMAND_LIST_URL}`);
   });
 }
