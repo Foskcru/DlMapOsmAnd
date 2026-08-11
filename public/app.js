@@ -521,19 +521,21 @@
     if (sub) {
       // carte régionale dédiée -> orange vif
       fillColor = selected ? '#c2410c' : '#ea7500';
-      fillOpacity = selected ? 0.95 : 0.8;
+      fillOpacity = selected ? 0.95 : 0.85;
     } else if (covered) {
-      // couvert par la carte nationale -> orange pâle
-      fillColor = '#f59e0b';
-      fillOpacity = 0.34;
+      // couvert par la carte nationale -> ambre clair (net en mode sombre)
+      fillColor = '#fcd34d';
+      fillOpacity = 0.6;
     } else {
       // aucune carte -> gris
-      fillColor = '#e2e8f0';
-      fillOpacity = 0.25;
+      fillColor = '#cbd5e1';
+      fillOpacity = 0.3;
     }
     return {
-      color: '#7c2d12',
-      weight: selected ? 2.4 : 0.8, // contours des régions toujours visibles
+      // contour clair semi-transparent : bien visible sur fond sombre ET clair
+      color: selected ? '#c2410c' : 'rgba(120,45,18,0.9)',
+      weight: selected ? 2.6 : 1,
+      opacity: 1,
       fillColor,
       fillOpacity,
     };
