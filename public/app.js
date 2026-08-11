@@ -544,9 +544,14 @@
   function initMap(geojson) {
     map = L.map('map', {
       attributionControl: false,
-      worldCopyJump: true,
       minZoom: 1,
       maxZoom: 8,
+      // Empêche de partir dans le vide : le déplacement reste borné au monde.
+      maxBounds: [
+        [-85, -180],
+        [85, 180],
+      ],
+      maxBoundsViscosity: 1.0,
     });
 
     geoLayer = L.geoJSON(geojson, {
