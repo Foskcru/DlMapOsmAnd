@@ -493,6 +493,7 @@
     return {
       color: '#ffffff',
       weight: 0.6,
+      opacity: 1, // <- indispensable : réaffiche le contour après désélection
       fillColor: available ? '#ea7500' : '#cbd5e1',
       fillOpacity: dimmed
         ? available
@@ -513,14 +514,28 @@
 
   function styleRegion(feature) {
     const sub = subForRegion(feature.properties || {}, selectedToken);
-    const wholeMode = countryOnlyWhole(selectedToken);
-    const available = !!sub || wholeMode;
+    const covered = !sub && !!wholeCountrySet[selectedToken];
     const selected = sub && sub === selectedSub;
+    let fillColor;
+    let fillOpacity;
+    if (sub) {
+      // carte régionale dédiée -> orange vif
+      fillColor = selected ? '#c2410c' : '#ea7500';
+      fillOpacity = selected ? 0.95 : 0.8;
+    } else if (covered) {
+      // couvert par la carte nationale -> orange pâle
+      fillColor = '#f59e0b';
+      fillOpacity = 0.34;
+    } else {
+      // aucune carte -> gris
+      fillColor = '#e2e8f0';
+      fillOpacity = 0.25;
+    }
     return {
       color: '#7c2d12',
       weight: selected ? 2.4 : 0.8, // contours des régions toujours visibles
-      fillColor: selected ? '#c2410c' : available ? '#f59e0b' : '#e2e8f0',
-      fillOpacity: available ? (selected ? 0.95 : 0.72) : 0.25,
+      fillColor,
+      fillOpacity,
     };
   }
 
@@ -686,9 +701,9 @@
             function () {
               const sub = subForRegion(props, selectedToken);
               const nm = noAccent(props.name);
-              if (sub) return `${nm} — ✓ carte disponible (cliquez)`;
-              if (countryOnlyWhole(selectedToken))
-                return `${nm} — ✓ couvert par la carte du pays (cliquez)`;
+              if (sub) return `${nm} — ✓ carte dédiée (cliquez)`;
+              if (wholeCountrySet[selectedToken])
+                return `${nm} — couvert par la carte du pays (cliquez)`;
               return `${nm} — ✗ aucune carte`;
             },
             { sticky: true }
@@ -707,12 +722,12 @@
                 selectedSub = sub;
                 regionLayer.setStyle(styleRegion);
                 render();
-              } else if (countryOnlyWhole(selectedToken)) {
-                // Pas de carte régionale : on propose la carte du pays entier.
+              } else if (wholeCountrySet[selectedToken]) {
+                // Pas de carte régionale ici : on propose la carte du pays.
                 selectedSub = '';
                 render();
                 setHint(
-                  `${frCountry(selectedToken)} : une seule carte couvre tout le pays — voir ci-dessous.`
+                  `${frCountry(selectedToken)} : cette zone est couverte par la carte du pays — voir ci-dessous.`
                 );
               } else {
                 selectedSub = '';
