@@ -1,0 +1,27 @@
+# Exemple « derrière un reverse proxy » (Nginx Proxy Manager, Traefik…)
+#
+# Ici on NE publie AUCUN port sur le NAS : le proxy joint le conteneur par son
+# nom sur un réseau Docker partagé, en utilisant le port INTERNE (3000).
+#
+# Prérequis (une seule fois) : créer le réseau partagé
+#   docker network create proxy
+# et mettre AUSSI ton conteneur Nginx Proxy Manager sur ce réseau "proxy".
+#
+# Ensuite, dans NPM -> Proxy Host :
+#   Forward Hostname / IP : dlmaposmand
+#   Forward Port          : 3000
+services:
+  dlmaposmand:
+    image: ghcr.io/foskcru/dlmaposmand:latest
+    container_name: dlmaposmand
+    restart: unless-stopped
+    environment:
+      - PORT=3000
+      # Optionnel : affiche ton URL réelle dans les logs
+      # - PUBLIC_URL=https://cartes.mon-domaine.fr
+    networks:
+      - proxy
+
+networks:
+  proxy:
+    external: true

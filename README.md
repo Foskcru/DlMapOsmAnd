@@ -139,6 +139,23 @@ en `AUTRE-PORT:3000` si le port est pris).
   recrée le conteneur (ou le bouton *pull/update* de Dockge, ou **Watchtower**
   pour une mise à jour automatique).
 
+### Derrière un reverse proxy (Nginx Proxy Manager, Traefik…)
+
+Pour ne **rien exposer** sur le NAS et servir l'app via un proxy (nom de
+domaine, HTTPS…), utilise [`compose.npm.yaml`](compose.npm.yaml) : pas de
+`ports:`, le proxy joint le conteneur **par son nom** sur un réseau Docker
+partagé, en utilisant le **port interne 3000**.
+
+1. Crée le réseau partagé (une fois) : `docker network create proxy`
+2. Mets **ton conteneur Nginx Proxy Manager sur ce même réseau `proxy`**.
+3. Déploie le stack ([`compose.npm.yaml`](compose.npm.yaml)) — aucun port publié.
+4. Dans NPM → **Proxy Host** :
+   - *Forward Hostname / IP* : **`dlmaposmand`**
+   - *Forward Port* : **`3000`**
+
+> Rappel : le `ports:` ne sert qu'à exposer à l'hôte. Un reverse proxy sur le
+> même réseau Docker n'en a pas besoin — plus sûr (rien d'ouvert sur le LAN).
+
 ### Mise à jour automatique depuis GitHub (sans copier de fichiers) — le plus simple
 
 Le fichier [`compose.autoupdate.yaml`](compose.autoupdate.yaml) fournit une
