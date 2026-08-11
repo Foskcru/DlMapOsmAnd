@@ -1,6 +1,6 @@
 {
   "name": "dl-map-osmand",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "Application web pour lister et rechercher toutes les cartes disponibles sur download.osmand.net",
   "main": "server.js",
   "type": "commonjs",

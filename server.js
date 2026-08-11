@@ -693,7 +693,15 @@ const server = http.createServer(async (req, res) => {
 // (permet d'importer les fonctions pour les tests).
 if (require.main === module) {
   server.listen(PORT, () => {
-    console.log(`DlMapOsmAnd v${VERSION} démarré sur le port ${PORT}`);
+    console.log(`DlMapOsmAnd v${VERSION} — écoute sur le port interne ${PORT}`);
+    if (process.env.PUBLIC_URL) {
+      console.log(`Accès : ${process.env.PUBLIC_URL}`);
+    } else {
+      console.log(
+        'Accès : http://<IP-du-NAS>:<port publié par Docker> ' +
+          '(le port interne ci-dessus n\'est pas le port externe)'
+      );
+    }
     console.log(`Source des cartes : ${OSMAND_LIST_URL}`);
   });
 }
