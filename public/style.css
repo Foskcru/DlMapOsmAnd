@@ -167,6 +167,12 @@ body {
   border-color: var(--accent);
 }
 
+.map-reset.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
 /* ---- Bascule de thème ---- */
 .theme-toggle {
   margin-left: auto;

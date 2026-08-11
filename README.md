@@ -18,6 +18,9 @@ disponibles sur [`download.osmand.net/list.php`](https://download.osmand.net/lis
   voix…) et par continent
 - ↕️ **Tri** par nom, taille ou date
 - ⬇️ **Lien de téléchargement direct** pour chaque carte
+- 🛰️ **Fond de carte optionnel** : bouton « Fond de carte » pour afficher un vrai
+  fond (tuiles CARTO, thème clair/sombre) avec défilement libre — nécessite Internet
+  côté navigateur ; désactivé par défaut (mode épuré verrouillé sur le monde)
 - ⚡ **Zéro dépendance runtime** : Node.js natif (`http`/`https`) ; Leaflet et le
   fond de carte GeoJSON sont **embarqués** dans le projet (aucun CDN requis)
 - 🧠 **Cache serveur** (1 h) pour ne pas surcharger les serveurs OsmAnd
@@ -123,6 +126,10 @@ services:
 
 Puis démarre et ouvre **http://IP-DU-SERVEUR:3000** (change `3000:3000`
 en `AUTRE-PORT:3000` si le port est pris).
+
+> **Versions** : chaque tag Git `vX.Y.Z` publie une image versionnée. Tu peux
+> soit suivre la dernière (`:latest`), soit **épingler une version** précise,
+> ex. `image: ghcr.io/foskcru/dlmaposmand:1.1.0`.
 
 - **Prérequis (une seule fois)** : le *package* GHCR doit être **public** —
   GitHub → avatar → **Your packages** → `dlmaposmand` → **Package settings** →

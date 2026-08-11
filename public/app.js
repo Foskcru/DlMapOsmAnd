@@ -15,7 +15,11 @@
     mapHint: document.getElementById('mapHint'),
     themeToggle: document.getElementById('themeToggle'),
     onlyUnlinked: document.getElementById('onlyUnlinked'),
+    tileToggle: document.getElementById('tileToggle'),
   };
+
+  // Déclaré tôt : référencé par applyTheme() qui est appelé au démarrage.
+  let tilesOn = false;
 
   /* ---------------------------------------------------------------- thème */
 
@@ -30,6 +34,7 @@
       /* ignore */
     }
     if (els.themeToggle) els.themeToggle.textContent = t === 'dark' ? '☀️' : '🌙';
+    if (tilesOn) buildTiles(); // adapter le fond de tuiles au thème
   }
   applyTheme(currentTheme());
   if (els.themeToggle) {
@@ -51,6 +56,55 @@
   let worldLayers = []; // [{ name, layer }]
   let selectedToken = ''; // pays sélectionné (token OsmAnd)
   let selectedSub = ''; // sous-région sélectionnée (token)
+  let tileLayer = null; // fond de carte (tuiles), optionnel
+  const WORLD_BOUNDS = [
+    [-85, -180],
+    [85, 180],
+  ];
+
+  function tileUrl() {
+    const dark = currentTheme() === 'dark';
+    return (
+      'https://{s}.basemaps.cartocdn.com/' +
+      (dark ? 'dark_all' : 'light_all') +
+      '/{z}/{x}/{y}{r}.png'
+    );
+  }
+
+  function buildTiles() {
+    if (!map) return;
+    if (tileLayer) {
+      map.removeLayer(tileLayer);
+      tileLayer = null;
+    }
+    tileLayer = L.tileLayer(tileUrl(), {
+      subdomains: 'abcd',
+      maxZoom: 19,
+      attribution: '© OpenStreetMap, © CARTO',
+    }).addTo(map);
+    tileLayer.bringToBack();
+  }
+
+  function setTiles(on) {
+    tilesOn = on;
+    try {
+      localStorage.setItem('tiles', on ? '1' : '0');
+    } catch (e) {
+      /* ignore */
+    }
+    if (els.tileToggle) els.tileToggle.classList.toggle('active', on);
+    if (!map) return;
+    if (on) {
+      buildTiles();
+      map.setMaxBounds(null); // défilement libre / continu
+    } else {
+      if (tileLayer) {
+        map.removeLayer(tileLayer);
+        tileLayer = null;
+      }
+      map.setMaxBounds(WORLD_BOUNDS);
+    }
+  }
 
   /* ---------------------------------------------------------------- utils */
 
@@ -490,18 +544,20 @@
     }
     // Quand on est en mode zoom/régions, on estompe les autres pays.
     const dimmed = !!selectedToken;
+    let fillOpacity = dimmed
+      ? available
+        ? 0.28
+        : 0.18
+      : available
+      ? 0.72
+      : 0.35;
+    if (tilesOn) fillOpacity *= 0.6; // laisser voir le fond de carte
     return {
       color: '#ffffff',
       weight: 0.6,
       opacity: 1, // <- indispensable : réaffiche le contour après désélection
       fillColor: available ? '#ea7500' : '#cbd5e1',
-      fillOpacity: dimmed
-        ? available
-          ? 0.28
-          : 0.18
-        : available
-        ? 0.72
-        : 0.35,
+      fillOpacity,
     };
   }
 
@@ -531,6 +587,7 @@
       fillColor = '#cbd5e1';
       fillOpacity = 0.3;
     }
+    if (tilesOn && !selected) fillOpacity *= 0.6; // laisser voir le fond de carte
     return {
       // contour clair semi-transparent : bien visible sur fond sombre ET clair
       color: selected ? '#c2410c' : 'rgba(120,45,18,0.9)',
@@ -543,16 +600,15 @@
 
   function initMap(geojson) {
     map = L.map('map', {
-      attributionControl: false,
+      attributionControl: true,
+      worldCopyJump: true, // pour le mode "fond de carte" (défilement continu)
       minZoom: 1,
-      maxZoom: 8,
-      // Empêche de partir dans le vide : le déplacement reste borné au monde.
-      maxBounds: [
-        [-85, -180],
-        [85, 180],
-      ],
+      maxZoom: 18,
+      // Sans fond de tuiles : on borne au monde pour ne pas partir dans le vide.
+      maxBounds: WORLD_BOUNDS,
       maxBoundsViscosity: 1.0,
     });
+    map.attributionControl.setPrefix(false);
 
     geoLayer = L.geoJSON(geojson, {
       style: styleCountry,
@@ -592,6 +648,13 @@
 
     map.fitBounds(geoLayer.getBounds(), { padding: [4, 4] });
     setHint('Cliquez un pays coloré pour zoomer et voir ses régions.');
+
+    // Restaure le fond de tuiles si l'utilisateur l'avait activé.
+    try {
+      if (localStorage.getItem('tiles') === '1') setTiles(true);
+    } catch (e) {
+      /* ignore */
+    }
   }
 
   function refreshCountryStyles() {
@@ -838,6 +901,8 @@
   if (els.onlyUnlinked) els.onlyUnlinked.addEventListener('change', render);
   els.refresh.addEventListener('click', () => loadMaps(true));
   els.mapReset.addEventListener('click', resetSelection);
+  if (els.tileToggle)
+    els.tileToggle.addEventListener('click', () => setTiles(!tilesOn));
 
   // Chargés en parallèle : la liste ne doit pas attendre le gros fond de carte.
   loadMaps(false);

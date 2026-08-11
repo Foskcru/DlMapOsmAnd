@@ -1,11 +1,14 @@
 name: Build and publish Docker image
 
-# Construit l'image et la publie sur GHCR (ghcr.io) à chaque push.
+# Construit l'image et la publie sur GHCR (ghcr.io) à chaque push,
+# et sur chaque tag de version vX.Y.Z (image taguée avec la version).
 on:
   push:
     branches:
       - main
       - claude/web-app-carte-list-qnqn45
+    tags:
+      - 'v*.*.*'
   workflow_dispatch:
 
 jobs:
@@ -36,6 +39,8 @@ jobs:
           images: ghcr.io/${{ github.repository }}
           tags: |
             type=raw,value=latest
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
             type=sha,format=short
 
       - name: Build and push
