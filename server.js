@@ -592,8 +592,12 @@ function serveStatic(req, res, pathname) {
       return;
     }
     const ext = path.extname(filePath).toLowerCase();
+    // HTML/JS/CSS : pas de cache -> une mise à jour est visible au 1er rechargement.
+    // Données/images (fonds de carte lourds) : cache 1 jour.
+    const noCache = ext === '.html' || ext === '.js' || ext === '.css';
     res.writeHead(200, {
       'Content-Type': MIME_TYPES[ext] || 'application/octet-stream',
+      'Cache-Control': noCache ? 'no-cache' : 'public, max-age=86400',
     });
     res.end(content);
   });
