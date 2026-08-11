@@ -31,6 +31,11 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # Version lue dans package.json -> tag d'image (ex. 1.1.0) sans tag Git.
+      - name: Version depuis package.json
+        id: ver
+        run: echo "v=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+
       - name: Docker metadata (tags & labels)
         id: meta
         uses: docker/metadata-action@v5
@@ -39,6 +44,7 @@ jobs:
           images: ghcr.io/${{ github.repository }}
           tags: |
             type=raw,value=latest
+            type=raw,value=${{ steps.ver.outputs.v }},enable=${{ github.ref == 'refs/heads/main' }}
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=sha,format=short
